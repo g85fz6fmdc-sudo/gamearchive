@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lemon Leap 2.5D</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b131e;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Glassmorphic HUD Overlay */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .hud-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 18px;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            color: #f8fafc;
+            font-size: 17px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            letter-spacing: 0.5px;
+        }
+
+        .hud-card span.icon {
+            font-size: 20px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+        }
+
+        .hud-card span.value {
+            color: #fbbf24;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+
+        #mute-btn {
+            pointer-events: auto;
+            cursor: pointer;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.37);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #fff;
+        }
+
+        #mute-btn:hover {
+            transform: scale(1.08);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        #mute-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Overlay Screens */
+        .overlay-screen {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.92) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            color: white;
+            text-align: center;
+            padding: 24px;
+            opacity: 1;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .overlay-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .title-text {
+            font-size: 56px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff176 0%, #fbc02d 50%, #f57f17 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 10px 20px rgba(245, 127, 23, 0.4));
+            margin-bottom: 12px;
+            letter-spacing: 3px;
+        }
+
+        .subtitle-text {
+            font-size: 17px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+            max-width: 440px;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .stats-container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px 32px;
+            border-radius: 20px;
+            margin-bottom: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 280px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            margin: 10px 0;
+            color: #cbd5e1;
+        }
+
+        .stat-value {
+            font-weight: 800;
+            color: #fbbf24;
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+            color: white;
+            font-size: 20px;
+            font-weight: 800;
+            padding: 16px 48px;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(101, 163, 13, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: auto;
+            letter-spacing: 1.5px;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 14px 30px rgba(101, 163, 13, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        .btn-play:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Mobile Controls */
+        #touch-controls {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            right: 24px;
+            display: none;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        @media (max-width: 1024px), (pointer: coarse) {
+            #touch-controls {
+                display: flex;
+            }
+        }
+
+        .touch-group {
+            display: flex;
+            gap: 16px;
+            pointer-events: auto;
+        }
+
+        .touch-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 28px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            touch-action: manipulation;
+            transition: background 0.1s;
+        }
+
+        .touch-btn:active {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(0.94);
+        }
+
+        .touch-btn-jump {
+            width: 80px;
+            height: 80px;
+            background: rgba(251, 191, 36, 0.35);
+            border-color: rgba(251, 191, 36, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div class="hud-group">
+                <div class="hud-card">
+                    <span class="icon">🍋</span> <span id="hud-score" class="value">0 m</span>
+                </div>
+                <div class="hud-card">
+                    <span class="icon">🧊</span> <span id="hud-sugar" class="value">0</span>
+                </div>
+            </div>
+            <div class="hud-group">
+                <div class="hud-card">
+                    <span class="icon">🏆</span> <span id="hud-best" class="value">0 m</span>
+                </div>
+                <div id="mute-btn" title="Toggle Sound">🔊</div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-overlay" class="overlay-screen">
+            <div class="title-text">LEMON LEAP 2.5D</div>
+            <div class="subtitle-text">Leap across procedurally generated 3D platforms, collect sugar cubes, and master spring physics in a rich pseudo-3D citrus world!</div>
+            <button id="start-btn" class="btn-play">LEAP IN!</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-overlay" class="overlay-screen hidden">
+            <div class="title-text" style="background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">SPLASH!</div>
+            <div class="subtitle-text">You plunged into the citrus river depths!</div>
+            <div class="stats-container">
+                <div class="stat-row">
+                    <span>Distance Traveled:</span>
+                    <span id="go-score" class="stat-value">0 m</span>
+                </div>
+                <div class="stat-row">
+                    <span>Sugar Cubes:</span>
+                    <span id="go-sugar" class="stat-value">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Best Distance:</span>
+                    <span id="go-best" class="stat-value">0 m</span>
+                </div>
+            </div>
+            <button id="restart-btn" class="btn-play">TRY AGAIN</button>
+        </div>
+
+        <!-- Touch Controls -->
+        <div id="touch-controls">
+            <div class="touch-group">
+                <div id="btn-left" class="touch-btn">◀</div>
+                <div id="btn-right" class="touch-btn">▶</div>
+            </div>
+            <div class="touch-group">
+                <div id="btn-jump" class="touch-btn touch-btn-jump">▲</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- Web Audio Synthesizer --- */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(680, this.ctx.currentTime + 0.16);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.16);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.16);
+            }
+
+            playBounce() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(750, this.ctx.currentTime + 0.12);
+                osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.28);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.28);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.28);
+            }
+
+            playCollect() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(now + 0.22);
+            }
+
+            playLand() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(45, this.ctx.currentTime + 0.09);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.09);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.09);
+            }
+
+            playCrumble() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(35, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playGameOver() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.7);
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.7);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.7);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        /* --- Procedural 3D Texture Generators --- */
+        function createLemonTexture() {
+            const tex = document.createElement('canvas');
+            tex.width = 120; tex.height = 120;
+            const tctx = tex.getContext('2d');
+            const cx = 60, cy = 60, r = 46;
+
+            // Base 3D Lemon Radial Shading (Specular top-left, Deep orange amber shadow bottom-right)
+            const grad = tctx.createRadialGradient(cx - 16, cy - 18, 4, cx, cy, r);
+            grad.addColorStop(0, '#FFFDE7');   // Intense Specular Core
+            grad.addColorStop(0.18, '#FFF176'); // Bright Yellow
+            grad.addColorStop(0.65, '#FBC02D'); // Warm Golden
+            grad.addColorStop(0.88, '#E65100'); // Deep Citrus Shadow Edge
+            grad.addColorStop(1, '#880E4F');    // Subsurface Scattering Rim
+
+            tctx.fillStyle = grad;
+            tctx.beginPath();
+            // Oblong citrus fruit body shape
+            tctx.ellipse(cx, cy, r + 4, r - 3, Math.PI / 12, 0, Math.PI * 2);
+            tctx.fill();
+
+            // Citrus Nipple / Tip details
+            tctx.fillStyle = '#FBC02D';
+            tctx.beginPath();
+            tctx.ellipse(cx + r - 2, cy - 8, 8, 5, Math.PI / 6, 0, Math.PI * 2);
+            tctx.ellipse(cx - r + 2, cy + 8, 8, 5, Math.PI / 6, 0, Math.PI * 2);
+            tctx.fill();
+
+            // Stippled Citrus Peel Surface Texture (Pores)
+            tctx.save();
+            tctx.globalCompositeOperation = 'source-atop';
+            tctx.fillStyle = 'rgba(160, 70, 0, 0.14)';
+            for (let i = 0; i < 450; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.sqrt(Math.random()) * (r - 2);
+                const px = cx + Math.cos(angle) * dist;
+                const py = cy + Math.sin(angle) * dist;
+                tctx.beginPath();
+                tctx.arc(px, py, 0.8 + Math.random() * 0.9, 0, Math.PI * 2);
+                tctx.fill();
+            }
+
+            // Glossy Surface Sheen Highlight Layer
+            const shine = tctx.createRadialGradient(cx - 18, cy - 20, 1, cx - 18, cy - 20, 24);
+            shine.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+            shine.addColorStop(0.4, 'rgba(255, 255, 255, 0.15)');
+            shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            tctx.fillStyle = shine;
+            tctx.beginPath();
+            tctx.arc(cx - 18, cy - 20, 24, 0, Math.PI * 2);
+            tctx.fill();
+
+            // Character Facial Features
+            // Eyes
+            tctx.fillStyle = '#1A0C00';
+            tctx.beginPath();
+            tctx.arc(cx - 11, cy - 3, 4.5, 0, Math.PI * 2);
+            tctx.arc(cx + 13, cy - 3, 4.5, 0, Math.PI * 2);
+            tctx.fill();
+            // Eye Highlights
+            tctx.fillStyle = '#FFFFFF';
+            tctx.beginPath();
+            tctx.arc(cx - 12.5, cy - 5, 1.8, 0, Math.PI * 2);
+            tctx.arc(cx + 11.5, cy - 5, 1.8, 0, Math.PI * 2);
+            tctx.fill();
+            // Rosy Cheeks
+            tctx.fillStyle = 'rgba(255, 82, 82, 0.45)';
+            tctx.beginPath();
+            tctx.ellipse(cx - 19, cy + 5, 5, 3, 0, 0, Math.PI * 2);
+            tctx.ellipse(cx + 21, cy + 5, 5, 3, 0, 0, Math.PI * 2);
+            tctx.fill();
+            // Cute Smile
+            tctx.strokeStyle = '#1A0C00';
+            tctx.lineWidth = 2.5;
+            tctx.lineCap = 'round';
+            tctx.beginPath();
+            tctx.arc(cx + 1, cy + 1, 7, 0.2, Math.PI - 0.2);
+            tctx.stroke();
+
+            // Green Leaf Top Stem
+            tctx.fillStyle = '#4CAF50';
+            tctx.beginPath();
+            tctx.ellipse(cx - 2, cy - r + 3, 11, 5, -Math.PI / 4, 0, Math.PI * 2);
+            tctx.fill();
+            tctx.strokeStyle = '#2E7D32';
+            tctx.lineWidth = 1;
+            tctx.stroke();
+
+            tctx.restore();
+            return tex;
+        }
+
+        const lemonTexture = createLemonTexture();
+
+        /* --- Main Setup & State --- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let sugarCubes = 0;
+        let highScore = localStorage.getItem('lemon_leap_highscore') || 0;
+        document.getElementById('hud-best').innerText = `${highScore} m`;
+
+        let cameraX = 0;
+        let keys = { left: false, right: false, jump: false, jumpPressed: false };
+
+        /* --- Particle Systems --- */
+        class JuiceParticle {
+            constructor(x, y, vx, vy, color, radius, life) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.radius = radius;
+                this.life = life; this.maxLife = life;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.32; // Gravity
+                this.vx *= 0.97;
+                this.life--;
+            }
+
+            draw(ctx, camX) {
+                const alpha = Math.max(0, this.life / this.maxLife);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                
+                // Droplet sphere with light sheen
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x - camX, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                ctx.beginPath();
+                ctx.arc(this.x - camX - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class ShockwaveRing {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.radius = 6;
+                this.maxRadius = 50;
+                this.life = 18;
+                this.maxLife = 18;
+            }
+
+            update() {
+                this.radius += (this.maxRadius - this.radius) * 0.22;
+                this.life--;
+            }
+
+            draw(ctx, camX) {
+                const alpha = Math.max(0, this.life / this.maxLife);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = '#FFE135';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.ellipse(this.x - camX, this.y, this.radius, this.radius * 0.3, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        let juiceParticles = [];
+        let shockwaves = [];
+
+        function spawnJuiceBurst(x, y, count = 14, direction = 'down') {
+            for (let i = 0; i < count; i++) {
+                const angle = direction === 'down' ? 
+                    (Math.PI * 0.2 + Math.random() * Math.PI * 0.6) : 
+                    (Math.PI * 1.2 + Math.random() * Math.PI * 0.6);
+                const speed = 4 + Math.random() * 7;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                const colors = ['#FFE135', '#FBC02D', '#FFF59D', '#FFB300'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                juiceParticles.push(new JuiceParticle(x, y, vx, vy, color, 3 + Math.random() * 3.5, 20 + Math.random() * 16));
+            }
+        }
+
+        /* --- Player Engine --- */
+        class Player {
+            constructor() {
+                this.width = 48;
+                this.height = 48;
+                this.reset();
+            }
+
+            reset() {
+                this.x = 120;
+                this.y = height / 2 - 100;
+                this.vx = 0;
+                this.vy = 0;
+                this.isGrounded = false;
+                this.rotation = 0;
+                
+                // Spring Physics Parameters
+                this.scaleX = 1;
+                this.scaleY = 1;
+                this.targetScaleX = 1;
+                this.targetScaleY = 1;
+                this.scaleVelX = 0;
+                this.scaleVelY = 0;
+                
+                this.jumpHoldTimer = 0;
+                this.maxJumpHold = 12;
+            }
+
+            triggerSquish(sx, sy) {
+                this.targetScaleX = sx;
+                this.targetScaleY = sy;
+            }
+
+            update() {
+                // Horizontal Acceleration & Friction
+                const accel = 0.85;
+                const friction = 0.87;
+                const maxSpeed = 8.0;
+
+                if (keys.left) this.vx -= accel;
+                if (keys.right) this.vx += accel;
+
+                this.vx *= friction;
+                if (Math.abs(this.vx) > maxSpeed) {
+                    this.vx = Math.sign(this.vx) * maxSpeed;
+                }
+
+                this.x += this.vx;
+
+                // Vertical Physics & Sustained Jump Power
+                const gravity = 0.58;
+                if (keys.jump) {
+                    if (this.isGrounded && keys.jumpPressed) {
+                        this.vy = -12.2;
+                        this.isGrounded = false;
+                        this.jumpHoldTimer = 1;
+                        keys.jumpPressed = false;
+                        this.triggerSquish(0.6, 1.4);
+                        spawnJuiceBurst(this.x + this.width / 2, this.y + this.height, 16, 'down');
+                        sfx.playJump();
+                    } else if (!this.isGrounded && this.jumpHoldTimer > 0 && this.jumpHoldTimer < this.maxJumpHold) {
+                        this.vy -= 0.48;
+                        this.jumpHoldTimer++;
+                    }
+                } else {
+                    this.jumpHoldTimer = 0;
+                }
+
+                this.vy += gravity;
+                if (this.vy > 16) this.vy = 16;
+                this.y += this.vy;
+
+                // Dynamic Spring Physics Engine for Elasticity
+                const stiffness = 0.2;
+                const damping = 0.72;
+
+                let forceX = (this.targetScaleX - this.scaleX) * stiffness;
+                this.scaleVelX = (this.scaleVelX + forceX) * damping;
+                this.scaleX += this.scaleVelX;
+
+                let forceY = (this.targetScaleY - this.scaleY) * stiffness;
+                this.scaleVelY = (this.scaleVelY + forceY) * damping;
+                this.scaleY += this.scaleVelY;
+
+                // Elastic Recovery
+                this.targetScaleX += (1 - this.targetScaleX) * 0.12;
+                this.targetScaleY += (1 - this.targetScaleY) * 0.12;
+
+                // Rolling Inertia Rotation
+                if (this.isGrounded) {
+                    this.rotation += this.vx * 0.06;
+                } else {
+                    this.rotation += (this.vx * 0.05) + (this.vy * 0.02);
+                }
+            }
+
+            draw(ctx, camX) {
+                ctx.save();
+                const centerX = this.x + this.width / 2 - camX;
+                const centerY = this.y + this.height / 2;
+
+                ctx.translate(centerX, centerY);
+                ctx.rotate(this.rotation);
+                ctx.scale(this.scaleX, this.scaleY);
+
+                // Render High Resolution 3D Lemon Texture
+                ctx.drawImage(lemonTexture, -this.width / 2 - 2, -this.height / 2 - 2, this.width + 4, this.height + 4);
+                ctx.restore();
+            }
+        }
+
+        /* --- 3D Extruded Platform Engine --- */
+        class Platform {
+            constructor(x, y, width, height, type = 'standard') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type; // 'standard', 'bouncy', 'moving', 'crumbling'
+                this.active = true;
+                
+                // Moving platform state
+                this.startY = y;
+                this.moveRange = 70;
+                this.moveSpeed = 0.035 + Math.random() * 0.02;
+                this.moveOffset = Math.random() * Math.PI * 2;
+
+                // Crumbling platform state
+                this.isStepped = false;
+                this.crumbleTimer = 24;
+                this.shakeOffset = 0;
+            }
+
+            update() {
+                if (this.type === 'moving') {
+                    this.moveOffset += this.moveSpeed;
+                    this.y = this.startY + Math.sin(this.moveOffset) * this.moveRange;
+                } else if (this.type === 'crumbling' && this.isStepped) {
+                    this.shakeOffset = (Math.random() - 0.5) * 7;
+                    this.crumbleTimer--;
+                    if (this.crumbleTimer <= 0) {
+                        this.active = false;
+                        spawnJuiceBurst(this.x + this.width / 2, this.y, 12, 'up');
+                        sfx.playCrumble();
+                    }
+                }
+            }
+
+            draw3DExtrusions(ctx, camX) {
+                if (!this.active) return;
+
+                const drawX = this.x - camX + this.shakeOffset;
+                const drawY = this.y;
+                const w = this.width;
+                const h = this.height;
+                const depth = 22; // 3D Extrusion Depth
+
+                ctx.save();
+
+                if (this.type === 'standard') {
+                    // Mossy Stone Block
+                    // 3D Front Face
+                    const frontGrad = ctx.createLinearGradient(drawX, drawY + h, drawX, drawY + h + depth);
+                    frontGrad.addColorStop(0, '#2E3D2F');
+                    frontGrad.addColorStop(1, '#1A241B');
+                    ctx.fillStyle = frontGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY + h - 3, w, depth + 3, [0, 0, 10, 10]);
+                    ctx.fill();
+
+                    // Top Face
+                    const topGrad = ctx.createLinearGradient(drawX, drawY, drawX + w, drawY + h);
+                    topGrad.addColorStop(0, '#4CAF50');
+                    topGrad.addColorStop(0.5, '#66BB6A');
+                    topGrad.addColorStop(1, '#388E3C');
+                    ctx.fillStyle = topGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY, w, h, 10);
+                    ctx.fill();
+
+                    // Moss Rim Light
+                    const capGrad = ctx.createLinearGradient(drawX, drawY, drawX, drawY + 6);
+                    capGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+                    capGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = capGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY, w, 6, [10, 10, 0, 0]);
+                    ctx.fill();
+
+                } else if (this.type === 'bouncy') {
+                    // Neon Jelly Spring Pad
+                    // 3D Front Face
+                    const frontGrad = ctx.createLinearGradient(drawX, drawY + h, drawX, drawY + h + depth);
+                    frontGrad.addColorStop(0, '#AD1457');
+                    frontGrad.addColorStop(1, '#4A148C');
+                    ctx.fillStyle = frontGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY + h - 3, w, depth + 3, [0, 0, 10, 10]);
+                    ctx.fill();
+
+                    // Top Face
+                    const topGrad = ctx.createLinearGradient(drawX, drawY, drawX, drawY + h);
+                    topGrad.addColorStop(0, '#FF4081');
+                    topGrad.addColorStop(1, '#F50057');
+                    ctx.fillStyle = topGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY, w, h, 10);
+                    ctx.fill();
+
+                    // Glossy Highlight Ring
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                    ctx.beginPath();
+                    ctx.roundRect(drawX + 6, drawY + 3, w - 12, 5, 3);
+                    ctx.fill();
+
+                } else if (this.type === 'moving') {
+                    // Citrus Orange Wood Platform
+                    // 3D Front Face
+                    const frontGrad = ctx.createLinearGradient(drawX, drawY + h, drawX, drawY + h + depth);
+                    frontGrad.addColorStop(0, '#E65100');
+                    frontGrad.addColorStop(1, '#BF360C');
+                    ctx.fillStyle = frontGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY + h - 3, w, depth + 3, [0, 0, 10, 10]);
+                    ctx.fill();
+
+                    // Top Face
+                    const topGrad = ctx.createLinearGradient(drawX, drawY, drawX + w, drawY + h);
+                    topGrad.addColorStop(0, '#FF9800');
+                    topGrad.addColorStop(1, '#F57C00');
+                    ctx.fillStyle = topGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY, w, h, 10);
+                    ctx.fill();
+
+                    // Wood Grain Accents
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+                    for (let i = 18; i < w - 12; i += 32) {
+                        ctx.fillRect(drawX + i, drawY + 2, 7, h - 4);
+                    }
+
+                } else if (this.type === 'crumbling') {
+                    // Cracked Sugar Cookie Block
+                    const alpha = Math.max(0, this.crumbleTimer / 24);
+                    ctx.globalAlpha = alpha;
+
+                    // 3D Front Face
+                    ctx.fillStyle = '#5D4037';
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY + h - 3, w, depth + 3, [0, 0, 10, 10]);
+                    ctx.fill();
+
+                    // Top Face
+                    ctx.fillStyle = '#D7CCC8';
+                    ctx.beginPath();
+                    ctx.roundRect(drawX, drawY, w, h, 8);
+                    ctx.fill();
+
+                    // Cracks
+                    ctx.strokeStyle = '#3E2723';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(drawX + w * 0.3, drawY);
+                    ctx.lineTo(drawX + w * 0.45, drawY + h + depth);
+                    ctx.moveTo(drawX + w * 0.72, drawY);
+                    ctx.lineTo(drawX + w * 0.58, drawY + h + depth);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* --- Collectible Items --- */
+        class Collectible {
+            constructor(x, y, type = 'sugar') {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.width = 22;
+                this.height = 22;
+                this.collected = false;
+                this.bobOffset = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.bobOffset += 0.06;
+            }
+
+            draw(ctx, camX) {
+                if (this.collected) return;
+
+                ctx.save();
+                const drawX = this.x - camX + this.width / 2;
+                const drawY = this.y + Math.sin(this.bobOffset) * 6 + this.height / 2;
+
+                ctx.translate(drawX, drawY);
+
+                if (this.type === 'sugar') {
+                    // 3D Crystal Sugar Cube
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.shadowColor = '#80DEEA';
+                    ctx.shadowBlur = 10;
+                    ctx.fillRect(-9, -9, 18, 18);
+                    
+                    // Bevel highlights
+                    ctx.strokeStyle = '#E0F7FA';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-9, -9, 18, 18);
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.fillRect(-6, -6, 5, 5);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        let player = new Player();
+        let platforms = [];
+        let collectibles = [];
+        let lastPlatformX = 0;
+
+        /* --- Level Generation & Shadow Engine --- */
+        function generateLevelAhead() {
+            const minGap = 120;
+            const maxGap = 250;
+            const targetX = player.x + width + 500;
+
+            while (lastPlatformX < targetX) {
+                const pWidth = 110 + Math.random() * 110;
+                const gap = minGap + Math.random() * (maxGap - minGap);
+                const nextX = lastPlatformX + gap;
+
+                const prevY = platforms.length > 0 ? platforms[platforms.length - 1].y : height - 160;
+                const minY = Math.max(160, prevY - 140);
+                const maxY = Math.min(height - 130, prevY + 120);
+                const nextY = minY + Math.random() * (maxY - minY);
+
+                const randType = Math.random();
+                let type = 'standard';
+                if (randType > 0.82) type = 'bouncy';
+                else if (randType > 0.62) type = 'moving';
+                else if (randType > 0.48) type = 'crumbling';
+
+                const newPlat = new Platform(nextX, nextY, pWidth, 24, type);
+                platforms.push(newPlat);
+
+                if (Math.random() < 0.65) {
+                    collectibles.push(new Collectible(nextX + pWidth / 2 - 11, nextY - 38, 'sugar'));
+                }
+
+                lastPlatformX = nextX + pWidth;
+            }
+        }
+
+        function drawDropShadows(ctx, player, platforms, camX) {
+            platforms.forEach(p => {
+                if (!p.active) return;
+                const px = player.x + player.width / 2;
+                const py = player.y + player.height;
+
+                // Dynamic vertical proximity calculation for soft shadow casting
+                if (px > p.x - 15 && px < p.x + p.width + 15) {
+                    const distY = p.y - py;
+                    if (distY >= -10 && distY < 320) {
+                        const normDist = Math.max(0, distY / 320);
+                        const shadowWidth = (player.width * 0.85) * (1 - normDist * 0.45);
+                        const shadowHeight = 10 * (1 - normDist * 0.55);
+                        const shadowAlpha = 0.52 * (1 - normDist);
+
+                        ctx.save();
+                        ctx.fillStyle = `rgba(5, 12, 22, ${shadowAlpha})`;
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            px - camX,
+                            p.y + 2,
+                            shadowWidth / 2,
+                            shadowHeight / 2,
+                            0, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+            });
+        }
+
+        function pruneOldObjects() {
+            const cutoffX = cameraX - 400;
+            platforms = platforms.filter(p => p.x + p.width > cutoffX && p.active);
+            collectibles = collectibles.filter(c => c.x + c.width > cutoffX && !c.collected);
+            juiceParticles = juiceParticles.filter(p => p.life > 0);
+            shockwaves = shockwaves.filter(s => s.life > 0);
+        }
+
+        function initGame() {
+            player.reset();
+            platforms = [];
+            collectibles = [];
+            juiceParticles = [];
+            shockwaves = [];
+            cameraX = 0;
+            score = 0;
+            sugarCubes = 0;
+
+            const startPlat = new Platform(60, height / 2 + 60, 280, 26, 'standard');
+            platforms.push(startPlat);
+            lastPlatformX = startPlat.x + startPlat.width;
+
+            generateLevelAhead();
+            updateHUD();
+        }
+
+        /* --- Controls & Inputs --- */
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = true;
+            if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
+                if (!keys.jump) keys.jumpPressed = true;
+                keys.jump = true;
+
+                if (gameState !== 'PLAYING') startGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = false;
+            if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
+                keys.jump = false;
+                keys.jumpPressed = false;
+            }
+        });
+
+        const setupTouchBtn = (id, onStart, onEnd) => {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                sfx.init();
+                onStart();
+            });
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                onEnd();
+            });
+        };
+
+        setupTouchBtn('btn-left', () => keys.left = true, () => keys.left = false);
+        setupTouchBtn('btn-right', () => keys.right = true, () => keys.right = false);
+        setupTouchBtn('btn-jump', () => {
+            if (!keys.jump) keys.jumpPressed = true;
+            keys.jump = true;
+            if (gameState !== 'PLAYING') startGame();
+        }, () => {
+            keys.jump = false;
+            keys.jumpPressed = false;
+        });
+
+        document.getElementById('mute-btn').addEventListener('click', () => {
+            sfx.enabled = !sfx.enabled;
+            document.getElementById('mute-btn').innerText = sfx.enabled ? '🔊' : '🔇';
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            sfx.init();
+            startGame();
+        });
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            sfx.init();
+            startGame();
+        });
+
+        function startGame() {
+            initGame();
+            gameState = 'PLAYING';
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            sfx.playGameOver();
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('lemon_leap_highscore', highScore);
+            }
+
+            document.getElementById('go-score').innerText = `${score} m`;
+            document.getElementById('go-sugar').innerText = sugarCubes;
+            document.getElementById('go-best').innerText = `${highScore} m`;
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').innerText = `${score} m`;
+            document.getElementById('hud-sugar').innerText = sugarCubes;
+            document.getElementById('hud-best').innerText = `${highScore} m`;
+        }
+
+        function checkCollisions() {
+            let groundedThisFrame = false;
+
+            platforms.forEach(p => {
+                if (!p.active) return;
+
+                const pBox = { x: p.x, y: p.y, w: p.width, h: p.height };
+                const playerBottom = player.y + player.height;
+                const prevPlayerBottom = player.y + player.height - player.vy;
+
+                if (
+                    player.x + player.width > pBox.x &&
+                    player.x < pBox.x + pBox.w &&
+                    playerBottom >= pBox.y &&
+                    prevPlayerBottom <= pBox.y + 10 &&
+                    player.vy >= 0
+                ) {
+                    player.y = pBox.y - player.height;
+                    player.vy = 0;
+                    groundedThisFrame = true;
+
+                    if (!player.isGrounded) {
+                        sfx.playLand();
+                        shockwaves.push(new ShockwaveRing(player.x + player.width / 2, p.y));
+                        spawnJuiceBurst(player.x + player.width / 2, player.y + player.height, 8, 'up');
+                    }
+
+                    if (p.type === 'bouncy') {
+                        player.vy = -18.5; // High Jump Velocity
+                        player.triggerSquish(1.5, 0.5);
+                        spawnJuiceBurst(player.x + player.width / 2, player.y + player.height, 18, 'down');
+                        sfx.playBounce();
+                    } else {
+                        player.triggerSquish(1.35, 0.65);
+                    }
+
+                    if (p.type === 'crumbling') {
+                        p.isStepped = true;
+                    }
+                }
+            });
+
+            player.isGrounded = groundedThisFrame;
+
+            // Collectibles Collision
+            collectibles.forEach(c => {
+                if (c.collected) return;
+
+                if (
+                    player.x + player.width > c.x &&
+                    player.x < c.x + c.width &&
+                    player.y + player.height > c.y &&
+                    player.y < c.y + c.height
+                ) {
+                    c.collected = true;
+                    sugarCubes += 1;
+                    sfx.playCollect();
+                    spawnJuiceBurst(c.x + c.width / 2, c.y + c.height / 2, 10, 'up');
+                }
+            });
+
+            // Falling into river void
+            if (player.y > height + 120) {
+                gameOver();
+            }
+        }
+
+        /* --- Parallax Atmosphere & Volumetric Sun Rays --- */
+        function drawParallaxAtmosphere() {
+            // Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#0f172a');
+            skyGrad.addColorStop(0.4, '#1e293b');
+            skyGrad.addColorStop(0.8, '#334155');
+            skyGrad.addColorStop(1, '#1e1b4b');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Volumetric Sunlight Rays
+            const sunX = width - 180;
+            const sunY = 90;
+            const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 400);
+            sunGlow.addColorStop(0, 'rgba(253, 224, 71, 0.35)');
+            sunGlow.addColorStop(0.5, 'rgba(251, 191, 36, 0.1)');
+            sunGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = sunGlow;
+            ctx.fillRect(0, 0, width, height);
+
+            // Distant Blurred Mountain Parallax Layer
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            for (let x = 0; x <= width; x += 60) {
+                const worldX = x + cameraX * 0.12;
+                const hY = height - 220 + Math.sin(worldX * 0.002) * 80;
+                ctx.lineTo(x, hY);
+            }
+            ctx.lineTo(width, height);
+            ctx.fill();
+
+            // Midground Citrus Canopy Layer
+            ctx.fillStyle = '#0f766e';
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            for (let x = 0; x <= width; x += 45) {
+                const worldX = x + cameraX * 0.3;
+                const hY = height - 120 + Math.sin(worldX * 0.005) * 50;
+                ctx.lineTo(x, hY);
+            }
+            ctx.lineTo(width, height);
+            ctx.fill();
+        }
+
+        /* --- Main Loop --- */
+        function gameLoop() {
+            drawParallaxAtmosphere();
+
+            if (gameState === 'PLAYING') {
+                player.update();
+                checkCollisions();
+
+                // Smooth Camera Follow Engine
+                const targetCamX = player.x - width * 0.32;
+                cameraX += (targetCamX - cameraX) * 0.1;
+
+                score = Math.max(score, Math.floor(player.x / 10));
+                updateHUD();
+
+                generateLevelAhead();
+                pruneOldObjects();
+
+                platforms.forEach(p => p.update());
+                collectibles.forEach(c => c.update());
+                juiceParticles.forEach(pt => pt.update());
+                shockwaves.forEach(sw => sw.update());
+            }
+
+            // Draw Drop Shadows on Platforms
+            drawDropShadows(ctx, player, platforms, cameraX);
+
+            // Draw 3D Extruded Platforms
+            platforms.forEach(p => p.draw3DExtrusions(ctx, cameraX));
+
+            // Draw Collectible Sugar Cubes
+            collectibles.forEach(c => c.draw(ctx, cameraX));
+
+            // Draw Shockwaves & Particles
+            shockwaves.forEach(sw => sw.draw(ctx, cameraX));
+            juiceParticles.forEach(pt => pt.draw(ctx, cameraX));
+
+            // Draw 3D Lemon Player
+            player.draw(ctx, cameraX);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pineapple Run 3D</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Inter:wght@600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .font-fredoka {
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+
+        /* Glassmorphism HUD styling */
+        .hud-glass {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1.5px solid rgba(250, 204, 21, 0.4);
+            box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.75);
+        }
+
+        @keyframes scoreBump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); color: #facc15; }
+            100% { transform: scale(1); }
+        }
+        .score-pop {
+            animation: scoreBump 0.3s ease-out;
+        }
+
+        /* Red flash feedback when caught by enemy */
+        @keyframes catchFlashAnim {
+            0% { opacity: 0.95; }
+            100% { opacity: 0; }
+        }
+        .flash-active {
+            animation: catchFlashAnim 0.65s ease-out forwards;
+        }
+
+        /* Animated Rainbow Frenzy Spectrum Background Shift */
+        @keyframes rainbowCycle {
+            0% { background-position: 0% 50%; filter: hue-rotate(0deg) saturate(220%); }
+            50% { background-position: 100% 50%; filter: hue-rotate(180deg) saturate(280%); }
+            100% { background-position: 0% 50%; filter: hue-rotate(360deg) saturate(220%); }
+        }
+        .rainbow-frenzy-active {
+            animation: rainbowCycle 1.2s linear infinite;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- WebGL Canvas Container -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- ENHANCED CHROMATIC ABERRATION OVERLAY (INTENSIFIED VIBRANCY & COLOR SEPARATION) -->
+    <div id="chromatic-overlay" class="fixed inset-0 pointer-events-none z-30 opacity-0 transition-opacity duration-75" style="
+        background: 
+            radial-gradient(circle at 35% 50%, transparent 15%, rgba(255, 0, 80, 0.9) 60%, rgba(255, 0, 0, 0.98) 100%),
+            radial-gradient(circle at 65% 50%, transparent 15%, rgba(0, 240, 255, 0.9) 60%, rgba(0, 200, 255, 0.98) 100%);
+        mix-blend-mode: screen;
+        box-shadow: inset 0 0 140px rgba(255, 0, 100, 0.95), inset 0 0 200px rgba(0, 255, 255, 0.95);
+    "></div>
+
+    <!-- SPECIAL RAINBOW FRENZY FULL-SCREEN OVERLAY -->
+    <div id="rainbow-overlay" class="fixed inset-0 pointer-events-none z-35 opacity-0 transition-opacity duration-150" style="
+        background: linear-gradient(124deg, #ff2400, #e81d1d, #e8b71d, #e3e81d, #1de840, #1ddde8, #2b1de8, #dd00f3, #dd00f3);
+        background-size: 300% 300%;
+        mix-blend-mode: color-dodge;
+        box-shadow: inset 0 0 100px rgba(255,255,255,0.8);
+    "></div>
+
+    <!-- ENEMY CATCH RED FLASH OVERLAY -->
+    <div id="catch-flash" class="fixed inset-0 bg-red-600/80 pointer-events-none opacity-0 z-50 flex items-center justify-center">
+        <div class="hud-glass px-8 py-5 rounded-3xl border-2 border-red-500 shadow-2xl text-center transform scale-110">
+            <span class="text-5xl select-none">😱🍍</span>
+            <p class="font-fredoka text-2xl font-extrabold text-red-400 mt-2 uppercase tracking-wider">THE PINEAPPLE SQUAD GOT YOU!</p>
+        </div>
+    </div>
+
+    <!-- GAME OVER FULLSCREEN OVERLAY WITH VIGNETTE -->
+    <div id="catch-overlay" class="fixed inset-0 z-50 flex items-center justify-center hidden pointer-events-auto select-none cursor-pointer" style="
+        background: radial-gradient(circle, rgba(220, 38, 38, 0.90) 0%, rgba(127, 29, 29, 0.97) 65%, rgba(69, 10, 10, 0.99) 100%);
+        box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.95);
+    ">
+        <div class="hud-glass max-w-lg w-full mx-4 rounded-3xl p-8 text-center border-4 border-red-500/80 shadow-2xl flex flex-col items-center transform scale-105">
+            <div class="w-24 h-24 mb-4 flex items-center justify-center bg-red-600/30 rounded-full border-4 border-red-500 shadow-lg animate-pulse">
+                <span class="text-6xl select-none">😱🍍</span>
+            </div>
+
+            <h1 class="font-fredoka text-4xl sm:text-5xl font-black text-red-500 tracking-wider mb-2 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] uppercase">
+                YOU GOT CAUGHT!
+            </h1>
+            <p class="text-xs sm:text-sm text-yellow-300 font-extrabold uppercase tracking-widest mb-8">
+                THE PINEAPPLE SQUAD CORNERED YOU!
+            </p>
+
+            <div class="w-full py-4 px-6 bg-red-600/30 border-2 border-red-400/80 rounded-2xl shadow-xl flex items-center justify-center gap-3 animate-bounce">
+                <p class="font-fredoka text-lg sm:text-2xl text-yellow-300 font-extrabold tracking-wide uppercase">
+                    PRESS <span class="inline-block bg-yellow-400 text-slate-950 px-4 py-1.5 rounded-xl font-black text-2xl sm:text-3xl shadow-lg border-2 border-yellow-200 mx-1">SPACE</span> TO RESPAWN
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- START GAME OVERLAY MODAL -->
+    <div id="start-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 transition-opacity duration-300">
+        <div class="hud-glass max-w-md w-full rounded-3xl p-8 text-center border border-yellow-500/40 flex flex-col items-center shadow-2xl">
+            <div class="w-20 h-20 mb-4 flex items-center justify-center bg-yellow-500/20 rounded-full border-2 border-yellow-400/50">
+                <span class="text-5xl select-none">🍍</span>
+            </div>
+
+            <h1 class="font-fredoka text-3xl sm:text-4xl font-bold text-yellow-400 tracking-wide mb-1">
+                PINEAPPLE RUN 3D
+            </h1>
+            <p class="text-xs text-red-500 font-bold uppercase tracking-widest mb-4">4-PINEAPPLE SQUAD / 3X EXPANDED MAP</p>
+
+            <!-- Enemy Squad Roster Badges -->
+            <div class="flex gap-2 justify-center mb-6">
+                <span class="px-2.5 py-1 bg-red-600/30 border border-red-500/50 text-red-400 rounded-lg text-xs font-bold">🔴 RED</span>
+                <span class="px-2.5 py-1 bg-cyan-600/30 border border-cyan-500/50 text-cyan-400 rounded-lg text-xs font-bold">🔵 BLUE</span>
+                <span class="px-2.5 py-1 bg-purple-600/30 border border-purple-500/50 text-purple-400 rounded-lg text-xs font-bold">🟣 PURPLE</span>
+                <span class="px-2.5 py-1 bg-emerald-600/30 border border-emerald-500/50 text-emerald-400 rounded-lg text-xs font-bold">🟢 GREEN</span>
+            </div>
+
+            <button id="start-btn" class="w-full py-4 px-6 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-fredoka font-bold text-lg sm:text-xl rounded-2xl shadow-xl transform active:scale-95 transition cursor-pointer">
+                CLICK TO START SCREAMING & PLAY 🙀
+            </button>
+        </div>
+    </div>
+
+    <!-- IN-GAME HUD OVERLAY (STRICTLY CONTAINS ONLY "SMILEYS COLLECTED") -->
+    <div id="hud-overlay" class="fixed top-4 left-4 sm:top-6 sm:left-6 pointer-events-none z-40 hidden">
+        <div class="hud-glass px-5 py-3 rounded-2xl flex items-center gap-3.5">
+            <span class="text-2xl sm:text-3xl select-none">😊</span>
+            <div class="flex flex-col">
+                <span class="text-[10px] font-extrabold text-amber-300 uppercase tracking-widest leading-none mb-1">SMILEYS COLLECTED</span>
+                <span id="smiley-score" class="font-mono text-2xl sm:text-3xl font-extrabold text-yellow-300 leading-none">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAUSE / RE-ENGAGE POINTER PROMPT -->
+    <div id="resume-prompt" class="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs hidden pointer-events-auto cursor-pointer">
+        <div class="hud-glass px-6 py-4 rounded-2xl text-center">
+            <p class="font-fredoka text-xl text-yellow-400">CLICK TO RESUME</p>
+        </div>
+    </div>
+
+    <script>
+        // Core World & Movement Constants
+        const WORLD_BOUNDS = 405;                        // 3X Expanded playable map perimeter bounds (-405 to +405)
+        const MAX_SMILEYS = 45;                           // Expanded Smiley Face pickups across 3X map grid
+        
+        // SPEED CONSTANTS:
+        const PLAYER_SPEED = 55.0;                        // Base player velocity
+        const SPRINT_SPEED = 90.0;                        // Shift sprint velocity
+        
+        let isGameStarted = false;
+        let isPointerLocked = false;
+        let isGameOver = false;
+        let smileysCollectedCount = 0;
+        let totalSmileysSpawnedCount = 0;                 // Global tracker to handle every 10th rainbow spawn
+        let chromaticIntensity = 0.0;                     // Chromatic aberration intensity state
+        let rainbowFrenzyTimer = 0.0;                     // 4-second Rainbow Frenzy multiplier timer
+        let currentSpeedMultiplier = 1.0;                 // Global velocity scaling factor
+
+        // Input Keyboard State
+        const keys = {
+            w: false, a: false, s: false, d: false,
+            ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false,
+            Shift: false, Space: false
+        };
+
+        class ScreamingAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isInitialized = false;
+            }
+
+            init() {
+                if (this.isInitialized) return;
+
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+
+                // Waveshaper distortion for raspy screaming texture
+                this.distortion = this.ctx.createWaveShaper();
+                this.distortion.curve = this.makeDistortionCurve(28);
+                this.distortion.oversample = '4x';
+
+                // Delay Feedback Loop
+                this.delay = this.ctx.createDelay();
+                this.delay.delayTime.value = 0.22;
+                
+                this.delayFeedback = this.ctx.createGain();
+                this.delayFeedback.gain.value = 0.35;
+
+                this.delayFilter = this.ctx.createBiquadFilter();
+                this.delayFilter.type = 'lowpass';
+                this.delayFilter.frequency.value = 1800;
+
+                this.delay.connect(this.delayFilter);
+                this.delayFilter.connect(this.delayFeedback);
+                this.delayFeedback.connect(this.delay);
+                this.delayFeedback.connect(this.masterGain);
+
+                this.distortion.connect(this.masterGain);
+                this.distortion.connect(this.delay);
+                this.masterGain.connect(this.ctx.destination);
+
+                this.setupGutturalLayer();
+                this.setupHighShriekLayer();
+                this.setupRaspyNoiseLayer();
+                this.startScreamModulation();
+
+                this.isInitialized = true;
+            }
+
+            setMasterVolume(val) {
+                if (!this.ctx || !this.masterGain) return;
+                this.masterGain.gain.setValueAtTime(val, this.ctx.currentTime);
+            }
+
+            makeDistortionCurve(amount) {
+                const k = amount;
+                const n_samples = 44100;
+                const curve = new Float32Array(n_samples);
+                const deg = Math.PI / 180;
+                for (let i = 0; i < n_samples; ++i) {
+                    const x = (i * 2) / n_samples - 1;
+                    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
+            }
+
+            setupGutturalLayer() {
+                this.gutOsc = this.ctx.createOscillator();
+                this.gutOsc.type = 'sawtooth';
+                this.gutOsc.frequency.setValueAtTime(190, this.ctx.currentTime);
+
+                this.gutVibrato = this.ctx.createOscillator();
+                this.gutVibrato.frequency.setValueAtTime(8, this.ctx.currentTime);
+                this.gutVibratoGain = this.ctx.createGain();
+                this.gutVibratoGain.gain.setValueAtTime(22, this.ctx.currentTime);
+                this.gutVibrato.connect(this.gutVibratoGain);
+                this.gutVibratoGain.connect(this.gutOsc.frequency);
+
+                this.formant1 = this.ctx.createBiquadFilter();
+                this.formant1.type = 'bandpass';
+                this.formant1.frequency.value = 750;
+                this.formant1.Q.value = 5;
+
+                this.formant2 = this.ctx.createBiquadFilter();
+                this.formant2.type = 'bandpass';
+                this.formant2.frequency.value = 1250;
+                this.formant2.Q.value = 4;
+
+                this.gutGain = this.ctx.createGain();
+                this.gutGain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+
+                this.gutOsc.connect(this.formant1);
+                this.gutOsc.connect(this.formant2);
+                this.formant1.connect(this.gutGain);
+                this.formant2.connect(this.gutGain);
+                this.gutGain.connect(this.distortion);
+
+                this.gutOsc.start();
+                this.gutVibrato.start();
+            }
+
+            setupHighShriekLayer() {
+                this.shriekOsc = this.ctx.createOscillator();
+                this.shriekOsc.type = 'sawtooth';
+                this.shriekOsc.frequency.setValueAtTime(780, this.ctx.currentTime);
+
+                this.shriekLFO = this.ctx.createOscillator();
+                this.shriekLFO.frequency.setValueAtTime(13, this.ctx.currentTime);
+                this.shriekLFOGain = this.ctx.createGain();
+                this.shriekLFOGain.gain.setValueAtTime(90, this.ctx.currentTime);
+                this.shriekLFO.connect(this.shriekLFOGain);
+                this.shriekLFOGain.connect(this.shriekOsc.frequency);
+
+                this.shriekFilter = this.ctx.createBiquadFilter();
+                this.shriekFilter.type = 'bandpass';
+                this.shriekFilter.frequency.value = 2400;
+                this.shriekFilter.Q.value = 3;
+
+                this.shriekGain = this.ctx.createGain();
+                this.shriekGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+
+                this.shriekOsc.connect(this.shriekFilter);
+                this.shriekFilter.connect(this.shriekGain);
+                this.shriekGain.connect(this.distortion);
+
+                this.shriekOsc.start();
+                this.shriekLFO.start();
+            }
+
+            setupRaspyNoiseLayer() {
+                const bufferSize = this.ctx.sampleRate * 2;
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                this.noiseSource = this.ctx.createBufferSource();
+                this.noiseSource.buffer = noiseBuffer;
+                this.noiseSource.loop = true;
+
+                this.noiseFilter = this.ctx.createBiquadFilter();
+                this.noiseFilter.type = 'bandpass';
+                this.noiseFilter.frequency.value = 1600;
+                this.noiseFilter.Q.value = 2;
+
+                this.noiseFlutter = this.ctx.createOscillator();
+                this.noiseFlutter.frequency.value = 25;
+
+                this.noiseGain = this.ctx.createGain();
+                this.noiseGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+
+                this.noiseSource.connect(this.noiseFilter);
+                this.noiseFilter.connect(this.noiseGain);
+                this.noiseFlutter.connect(this.noiseGain.gain);
+                this.noiseGain.connect(this.distortion);
+
+                this.noiseSource.start();
+                this.noiseFlutter.start();
+            }
+
+            startScreamModulation() {
+                setInterval(() => {
+                    if (!this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    
+                    const baseFreq = 160 + Math.random() * 140;
+                    this.gutOsc.frequency.linearRampToValueAtTime(baseFreq, now + 0.3);
+
+                    const shriekFreq = 650 + Math.random() * 500;
+                    this.shriekOsc.frequency.linearRampToValueAtTime(shriekFreq, now + 0.2);
+
+                    this.formant1.frequency.linearRampToValueAtTime(600 + Math.random() * 400, now + 0.4);
+                    this.formant2.frequency.linearRampToValueAtTime(1100 + Math.random() * 500, now + 0.4);
+
+                    this.gutVibrato.frequency.setValueAtTime(6 + Math.random() * 10, now);
+                    this.shriekLFO.frequency.setValueAtTime(10 + Math.random() * 15, now);
+                    this.noiseFilter.frequency.setValueAtTime(1300 + Math.random() * 800, now);
+
+                }, 350);
+            }
+
+            triggerPickupPitchSwell() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                this.shriekOsc.frequency.cancelScheduledValues(now);
+                this.shriekOsc.frequency.setValueAtTime(1400, now);
+                this.shriekOsc.frequency.exponentialRampToValueAtTime(650, now + 0.35);
+            }
+
+            triggerRainbowFrenzyScream() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                this.shriekOsc.frequency.cancelScheduledValues(now);
+                this.shriekOsc.frequency.setValueAtTime(1800, now);
+                this.shriekOsc.frequency.exponentialRampToValueAtTime(3200, now + 0.25);
+                this.shriekOsc.frequency.exponentialRampToValueAtTime(900, now + 0.60);
+            }
+
+            triggerCatchScream() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                this.shriekOsc.frequency.cancelScheduledValues(now);
+                this.shriekOsc.frequency.setValueAtTime(2400, now);
+                this.shriekOsc.frequency.exponentialRampToValueAtTime(280, now + 0.65);
+            }
+        }
+
+        const audioEngine = new ScreamingAudioEngine();
+
+        function createPineappleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            // Green Crown Leaves
+            const leafColors = ['#15803d', '#22c55e', '#4ade80'];
+            for (let i = 0; i < 7; i++) {
+                ctx.save();
+                ctx.translate(128, 90);
+                const angle = (i - 3) * 0.22;
+                ctx.rotate(angle);
+                ctx.fillStyle = leafColors[i % leafColors.length];
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-15, -45, 0, -80);
+                ctx.quadraticCurveTo(15, -45, 0, 0);
+                ctx.fill();
+                ctx.strokeStyle = '#052e16';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Yellow/Orange Pineapple Body
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(128, 150, 60, 75, 0, 0, Math.PI * 2);
+            
+            const bodyGrad = ctx.createRadialGradient(110, 130, 10, 128, 150, 70);
+            bodyGrad.addColorStop(0, '#fef08a');
+            bodyGrad.addColorStop(0.5, '#f59e0b');
+            bodyGrad.addColorStop(1, '#d97706');
+            ctx.fillStyle = bodyGrad;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#78350f';
+            ctx.stroke();
+            ctx.clip();
+
+            // Diamond Skin Grid Pattern
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 3;
+            for (let x = -100; x < 350; x += 22) {
+                ctx.beginPath();
+                ctx.moveTo(x, 60);
+                ctx.lineTo(x + 120, 240);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, 240);
+                ctx.lineTo(x + 120, 60);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#78350f';
+            for (let py = 90; py < 220; py += 22) {
+                for (let px = 80; px < 180; px += 22) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+
+            // Smiling Face Details
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.ellipse(108, 140, 9, 13, 0, 0, Math.PI * 2);
+            ctx.ellipse(148, 140, 9, 13, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(105, 135, 4, 0, Math.PI * 2);
+            ctx.arc(145, 135, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(244, 114, 182, 0.6)';
+            ctx.beginPath();
+            ctx.arc(95, 155, 9, 0, Math.PI * 2);
+            ctx.arc(161, 155, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#991b1b';
+            ctx.beginPath();
+            ctx.arc(128, 152, 16, 0.1, Math.PI - 0.1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#450a0a';
+            ctx.stroke();
+
+            ctx.fillStyle = '#fb7185';
+            ctx.beginPath();
+            ctx.arc(128, 161, 8, 0, Math.PI);
+            ctx.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createRedEnemyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            const leafColors = ['#4c0519', '#881337', '#be123c'];
+            for (let i = 0; i < 7; i++) {
+                ctx.save();
+                ctx.translate(128, 90);
+                const angle = (i - 3) * 0.22;
+                ctx.rotate(angle);
+                ctx.fillStyle = leafColors[i % leafColors.length];
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-15, -45, 0, -80);
+                ctx.quadraticCurveTo(15, -45, 0, 0);
+                ctx.fill();
+                ctx.strokeStyle = '#270008';
+                ctx.lineWidth = 3.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(128, 150, 60, 75, 0, 0, Math.PI * 2);
+            
+            const bodyGrad = ctx.createRadialGradient(110, 130, 10, 128, 150, 70);
+            bodyGrad.addColorStop(0, '#f43f5e');
+            bodyGrad.addColorStop(0.5, '#be123c');
+            bodyGrad.addColorStop(1, '#881337');
+            ctx.fillStyle = bodyGrad;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#4c0519';
+            ctx.stroke();
+            ctx.clip();
+
+            ctx.strokeStyle = '#881337';
+            ctx.lineWidth = 3.5;
+            for (let x = -100; x < 350; x += 22) {
+                ctx.beginPath();
+                ctx.moveTo(x, 60);
+                ctx.lineTo(x + 120, 240);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, 240);
+                ctx.lineTo(x + 120, 60);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#4c0519';
+            for (let py = 90; py < 220; py += 22) {
+                for (let px = 80; px < 180; px += 22) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+
+            ctx.fillStyle = '#18181b';
+            ctx.lineWidth = 5.5;
+            ctx.strokeStyle = '#000000';
+            ctx.beginPath();
+            ctx.moveTo(88, 120);
+            ctx.lineTo(118, 136);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(168, 120);
+            ctx.lineTo(138, 136);
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.ellipse(106, 142, 10, 12, -0.2, 0, Math.PI * 2);
+            ctx.ellipse(150, 142, 10, 12, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(106, 142, 4.5, 0, Math.PI * 2);
+            ctx.arc(150, 142, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#18181b';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(128, 178, 18, Math.PI + 0.3, -0.3);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createBlueEnemyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            const leafColors = ['#0e7490', '#06b6d4', '#67e8f9'];
+            for (let i = 0; i < 7; i++) {
+                ctx.save();
+                ctx.translate(128, 90);
+                const angle = (i - 3) * 0.22;
+                ctx.rotate(angle);
+                ctx.fillStyle = leafColors[i % leafColors.length];
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-15, -45, 0, -80);
+                ctx.quadraticCurveTo(15, -45, 0, 0);
+                ctx.fill();
+                ctx.strokeStyle = '#083344';
+                ctx.lineWidth = 3.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(128, 150, 60, 75, 0, 0, Math.PI * 2);
+            
+            const bodyGrad = ctx.createRadialGradient(110, 130, 10, 128, 150, 70);
+            bodyGrad.addColorStop(0, '#38bdf8');
+            bodyGrad.addColorStop(0.5, '#0284c7');
+            bodyGrad.addColorStop(1, '#0369a1');
+            ctx.fillStyle = bodyGrad;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#0c4a6e';
+            ctx.stroke();
+            ctx.clip();
+
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 3.5;
+            for (let x = -100; x < 350; x += 22) {
+                ctx.beginPath();
+                ctx.moveTo(x, 60);
+                ctx.lineTo(x + 120, 240);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, 240);
+                ctx.lineTo(x + 120, 60);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#0c4a6e';
+            for (let py = 90; py < 220; py += 22) {
+                for (let px = 80; px < 180; px += 22) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+
+            // Interceptor Sharp Eyebrows
+            ctx.lineWidth = 5.5;
+            ctx.strokeStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.moveTo(85, 125);
+            ctx.lineTo(120, 135);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(171, 125);
+            ctx.lineTo(136, 135);
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.ellipse(106, 142, 10, 12, 0, 0, Math.PI * 2);
+            ctx.ellipse(150, 142, 10, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.beginPath();
+            ctx.arc(106, 142, 4.5, 0, Math.PI * 2);
+            ctx.arc(150, 142, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.moveTo(100, 172);
+            ctx.lineTo(156, 172);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createPurpleEnemyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            const leafColors = ['#581c87', '#7e22ce', '#a855f7'];
+            for (let i = 0; i < 7; i++) {
+                ctx.save();
+                ctx.translate(128, 90);
+                const angle = (i - 3) * 0.22;
+                ctx.rotate(angle);
+                ctx.fillStyle = leafColors[i % leafColors.length];
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-15, -45, 0, -80);
+                ctx.quadraticCurveTo(15, -45, 0, 0);
+                ctx.fill();
+                ctx.strokeStyle = '#3b0764';
+                ctx.lineWidth = 3.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(128, 150, 60, 75, 0, 0, Math.PI * 2);
+            
+            const bodyGrad = ctx.createRadialGradient(110, 130, 10, 128, 150, 70);
+            bodyGrad.addColorStop(0, '#c084fc');
+            bodyGrad.addColorStop(0.5, '#9333ea');
+            bodyGrad.addColorStop(1, '#6b21a8');
+            ctx.fillStyle = bodyGrad;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#3b0764';
+            ctx.stroke();
+            ctx.clip();
+
+            ctx.strokeStyle = '#7e22ce';
+            ctx.lineWidth = 3.5;
+            for (let x = -100; x < 350; x += 22) {
+                ctx.beginPath();
+                ctx.moveTo(x, 60);
+                ctx.lineTo(x + 120, 240);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, 240);
+                ctx.lineTo(x + 120, 60);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#3b0764';
+            for (let py = 90; py < 220; py += 22) {
+                for (let px = 80; px < 180; px += 22) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+
+            // Sneaky Ambush Eyes
+            ctx.fillStyle = '#18181b';
+            ctx.beginPath();
+            ctx.ellipse(106, 142, 12, 8, -0.3, 0, Math.PI * 2);
+            ctx.ellipse(150, 142, 12, 8, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.arc(106, 142, 4, 0, Math.PI * 2);
+            ctx.arc(150, 142, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Smirking Mouth
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#18181b';
+            ctx.beginPath();
+            ctx.arc(128, 168, 14, 0.1, Math.PI - 0.5);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGreenEnemyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            const leafColors = ['#064e3b', '#047857', '#10b981'];
+            for (let i = 0; i < 7; i++) {
+                ctx.save();
+                ctx.translate(128, 90);
+                const angle = (i - 3) * 0.22;
+                ctx.rotate(angle);
+                ctx.fillStyle = leafColors[i % leafColors.length];
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-15, -45, 0, -80);
+                ctx.quadraticCurveTo(15, -45, 0, 0);
+                ctx.fill();
+                ctx.strokeStyle = '#022c22';
+                ctx.lineWidth = 3.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(128, 150, 60, 75, 0, 0, Math.PI * 2);
+            
+            const bodyGrad = ctx.createRadialGradient(110, 130, 10, 128, 150, 70);
+            bodyGrad.addColorStop(0, '#4ade80');
+            bodyGrad.addColorStop(0.5, '#16a34a');
+            bodyGrad.addColorStop(1, '#15803d');
+            ctx.fillStyle = bodyGrad;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#022c22';
+            ctx.stroke();
+            ctx.clip();
+
+            ctx.strokeStyle = '#15803d';
+            ctx.lineWidth = 3.5;
+            for (let x = -100; x < 350; x += 22) {
+                ctx.beginPath();
+                ctx.moveTo(x, 60);
+                ctx.lineTo(x + 120, 240);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x, 240);
+                ctx.lineTo(x + 120, 60);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#022c22';
+            for (let py = 90; py < 220; py += 22) {
+                for (let px = 80; px < 180; px += 22) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+
+            // Wide Staring Persistent Eyes
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(102, 140, 13, 0, Math.PI * 2);
+            ctx.arc(154, 140, 13, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#022c22';
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(102, 140, 6, 0, Math.PI * 2);
+            ctx.arc(154, 140, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Open Mouth
+            ctx.fillStyle = '#022c22';
+            ctx.beginPath();
+            ctx.ellipse(128, 172, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createSmileyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 128, 128);
+
+            const glowGrad = ctx.createRadialGradient(64, 64, 40, 64, 64, 64);
+            glowGrad.addColorStop(0, 'rgba(250, 204, 21, 0.85)');
+            glowGrad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.beginPath();
+            ctx.arc(64, 64, 64, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(64, 64, 48, 0, Math.PI * 2);
+            const faceGrad = ctx.createRadialGradient(50, 50, 8, 64, 64, 48);
+            faceGrad.addColorStop(0, '#fef08a');
+            faceGrad.addColorStop(0.7, '#facc15');
+            faceGrad.addColorStop(1, '#eab308');
+            ctx.fillStyle = faceGrad;
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#854d0e';
+            ctx.stroke();
+
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath();
+            ctx.arc(48, 52, 6, 0, Math.PI * 2);
+            ctx.arc(80, 52, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(46, 50, 2.5, 0, Math.PI * 2);
+            ctx.arc(78, 50, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.lineWidth = 4.5;
+            ctx.strokeStyle = '#1e1b4b';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(64, 64, 26, 0.25, Math.PI - 0.25);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        /* SPECIAL RAINBOW SMILEY TEXTURE GENERATOR */
+        function createRainbowSmileyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 128, 128);
+
+            // Outer Rainbow Glow Aura
+            const glowGrad = ctx.createRadialGradient(64, 64, 38, 64, 64, 64);
+            glowGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            glowGrad.addColorStop(0.4, 'rgba(236, 72, 153, 0.8)');
+            glowGrad.addColorStop(0.8, 'rgba(59, 130, 246, 0.6)');
+            glowGrad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.beginPath();
+            ctx.arc(64, 64, 64, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Multi-colored Conic Gradient Face Body
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(64, 64, 48, 0, Math.PI * 2);
+            ctx.clip();
+
+            const conicGrad = ctx.createConicGradient(0, 64, 64);
+            conicGrad.addColorStop(0.00, '#ef4444');
+            conicGrad.addColorStop(0.20, '#f97316');
+            conicGrad.addColorStop(0.40, '#eab308');
+            conicGrad.addColorStop(0.60, '#22c55e');
+            conicGrad.addColorStop(0.80, '#06b6d4');
+            conicGrad.addColorStop(0.90, '#a855f7');
+            conicGrad.addColorStop(1.00, '#ef4444');
+
+            ctx.fillStyle = conicGrad;
+            ctx.fillRect(0, 0, 128, 128);
+            ctx.restore();
+
+            ctx.beginPath();
+            ctx.arc(64, 64, 48, 0, Math.PI * 2);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Excited Facial Details
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(46, 50, 7, 10, 0, 0, Math.PI * 2);
+            ctx.ellipse(82, 50, 7, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#09090b';
+            ctx.beginPath();
+            ctx.arc(46, 50, 4, 0, Math.PI * 2);
+            ctx.arc(82, 50, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Big Happy Open Mouth
+            ctx.fillStyle = '#09090b';
+            ctx.beginPath();
+            ctx.arc(64, 66, 22, 0, Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.arc(64, 76, 12, 0, Math.PI);
+            ctx.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createTreeBillboardTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 128, 256);
+
+            // Trunk
+            ctx.fillStyle = '#542d13';
+            ctx.fillRect(54, 160, 20, 96);
+
+            // Layered Foliage Triangles
+            const greens = ['#14532d', '#166534', '#15803d', '#22c55e'];
+            for (let i = 0; i < 4; i++) {
+                ctx.fillStyle = greens[i];
+                ctx.beginPath();
+                ctx.moveTo(64, 15 + i * 35);
+                ctx.lineTo(10 + i * 8, 120 + i * 22);
+                ctx.lineTo(118 - i * 8, 120 + i * 22);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createCloudTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 128);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            const circles = [
+                {x: 80, y: 70, r: 40},
+                {x: 128, y: 55, r: 50},
+                {x: 176, y: 70, r: 40},
+                {x: 105, y: 75, r: 35},
+                {x: 150, y: 75, r: 35}
+            ];
+
+            circles.forEach(c => {
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createSunTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            const grad = ctx.createRadialGradient(64, 64, 10, 64, 64, 64);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.35, '#fef08a');
+            grad.addColorStop(0.7, '#facc15');
+            grad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(64, 64, 64, 0, Math.PI * 2);
+            ctx.fill();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#38bdf8');
+        scene.fog = new THREE.FogExp2('#38bdf8', 0.0022);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 800);
+        let cameraYaw = 0;
+        let cameraPitch = 0.35;
+        const cameraDistance = 7.8;
+
+        const ambientLight = new THREE.AmbientLight('#ffffff', 0.65);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight('#fff7ed', 1.25);
+        sunLight.position.set(180, 250, 120);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 800;
+        const d = 420;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        scene.add(sunLight);
+
+        const hemiLight = new THREE.HemisphereLight('#bae6fd', '#4d7c0f', 0.4);
+        scene.add(hemiLight);
+
+        class PhysicsWorld {
+            constructor() {
+                this.colliders = [];
+            }
+
+            addBox(minX, maxX, minZ, maxZ) {
+                this.colliders.push({ type: 'box', minX, maxX, minZ, maxZ });
+            }
+
+            addCircle(x, z, radius) {
+                this.colliders.push({ type: 'circle', x, z, radius });
+            }
+
+            resolveMovement(oldX, oldZ, targetX, targetZ, playerRadius = 0.6) {
+                let resX = targetX;
+                let resZ = targetZ;
+
+                for (const col of this.colliders) {
+                    if (col.type === 'box') {
+                        if (resX + playerRadius > col.minX && resX - playerRadius < col.maxX &&
+                            oldZ + playerRadius > col.minZ && oldZ - playerRadius < col.maxZ) {
+                            if (oldX <= col.minX) resX = col.minX - playerRadius;
+                            else if (oldX >= col.maxX) resX = col.maxX + playerRadius;
+                        }
+                    } else if (col.type === 'circle') {
+                        const dx = resX - col.x;
+                        const dz = oldZ - col.z;
+                        const dist = Math.hypot(dx, dz);
+                        const minDist = playerRadius + col.radius;
+                        if (dist < minDist && dist > 0) {
+                            resX = col.x + (dx / dist) * minDist;
+                        }
+                    }
+                }
+
+                for (const col of this.colliders) {
+                    if (col.type === 'box') {
+                        if (resX + playerRadius > col.minX && resX - playerRadius < col.maxX &&
+                            resZ + playerRadius > col.minZ && resZ - playerRadius < col.maxZ) {
+                            if (oldZ <= col.minZ) resZ = col.minZ - playerRadius;
+                            else if (oldZ >= col.maxZ) resZ = col.maxZ + playerRadius;
+                        }
+                    } else if (col.type === 'circle') {
+                        const dx = resX - col.x;
+                        const dz = resZ - col.z;
+                        const dist = Math.hypot(dx, dz);
+                        const minDist = playerRadius + col.radius;
+                        if (dist < minDist && dist > 0) {
+                            resZ = col.z + (dz / dist) * minDist;
+                        }
+                    }
+                }
+
+                return { x: resX, z: resZ };
+            }
+
+            isPositionBlocked(x, z, checkRadius = 1.8) {
+                for (const col of this.colliders) {
+                    if (col.type === 'box') {
+                        if (x + checkRadius > col.minX && x - checkRadius < col.maxX &&
+                            z + checkRadius > col.minZ && z - checkRadius < col.maxZ) {
+                            return true;
+                        }
+                    } else if (col.type === 'circle') {
+                        const dx = x - col.x;
+                        const dz = z - col.z;
+                        if (Math.hypot(dx, dz) < checkRadius + col.radius) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        const physics = new PhysicsWorld();
+
+        function build3XSuburbanTown() {
+            // Ground Lawn Plane (Size 3X)
+            const groundGeo = new THREE.PlaneGeometry(WORLD_BOUNDS * 2, WORLD_BOUNDS * 2);
+            const groundMat = new THREE.MeshLambertMaterial({ color: '#4d7c0f' });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Solid Physics Perimeter Boundaries
+            physics.addBox(-WORLD_BOUNDS - 10, WORLD_BOUNDS + 10, -WORLD_BOUNDS - 10, -WORLD_BOUNDS);
+            physics.addBox(-WORLD_BOUNDS - 10, WORLD_BOUNDS + 10, WORLD_BOUNDS, WORLD_BOUNDS + 10);
+            physics.addBox(-WORLD_BOUNDS - 10, -WORLD_BOUNDS, -WORLD_BOUNDS - 10, WORLD_BOUNDS + 10);
+            physics.addBox(WORLD_BOUNDS, WORLD_BOUNDS + 10, -WORLD_BOUNDS - 10, WORLD_BOUNDS + 10);
+
+            // Dense 2D Billboarded Treeline Outer Border along all 4 perimeter edges
+            const treeTex = createTreeBillboardTexture();
+            const treeMat = new THREE.SpriteMaterial({ map: treeTex, transparent: true });
+
+            for (let coord = -WORLD_BOUNDS; coord <= WORLD_BOUNDS; coord += 8) {
+                const treeN = new THREE.Sprite(treeMat);
+                treeN.scale.set(8, 12, 1);
+                treeN.position.set(coord, 6, -WORLD_BOUNDS);
+                scene.add(treeN);
+
+                const treeS = new THREE.Sprite(treeMat);
+                treeS.scale.set(8, 12, 1);
+                treeS.position.set(coord, 6, WORLD_BOUNDS);
+                scene.add(treeS);
+
+                const treeW = new THREE.Sprite(treeMat);
+                treeW.scale.set(8, 12, 1);
+                treeW.position.set(-WORLD_BOUNDS, 6, coord);
+                scene.add(treeW);
+
+                const treeE = new THREE.Sprite(treeMat);
+                treeE.scale.set(8, 12, 1);
+                treeE.position.set(WORLD_BOUNDS, 6, coord);
+                scene.add(treeE);
+            }
+
+            // Stylized 2D Sun Mesh
+            const sunTex = createSunTexture();
+            const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTex, transparent: true }));
+            sunSprite.scale.set(50, 50, 1);
+            sunSprite.position.set(180, 250, 120);
+            scene.add(sunSprite);
+
+            // 40+ Billboarded Procedural Drifting Clouds
+            const cloudTex = createCloudTexture();
+            const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.88 });
+            window.driftingClouds = [];
+
+            for (let c = 0; c < 45; c++) {
+                const cloud = new THREE.Sprite(cloudMat.clone());
+                const scaleW = 40 + Math.random() * 50;
+                cloud.scale.set(scaleW, scaleW * 0.5, 1);
+                
+                const cx = (Math.random() - 0.5) * (WORLD_BOUNDS * 2.4);
+                const cy = 90 + Math.random() * 60;
+                const cz = (Math.random() - 0.5) * (WORLD_BOUNDS * 2.4);
+                cloud.position.set(cx, cy, cz);
+
+                cloud.userData = { speed: 3.5 + Math.random() * 5.5 };
+                scene.add(cloud);
+                window.driftingClouds.push(cloud);
+            }
+
+            const roadMat = new THREE.MeshLambertMaterial({ color: '#334155' });
+            const stripeMat = new THREE.MeshBasicMaterial({ color: '#fef08a' });
+
+            function createRoad(x, z, width, length, isHorizontal) {
+                const roadGeo = new THREE.PlaneGeometry(
+                    isHorizontal ? length : width,
+                    isHorizontal ? width : length
+                );
+                const road = new THREE.Mesh(roadGeo, roadMat);
+                road.rotation.x = -Math.PI / 2;
+                road.position.set(x, 0.02, z);
+                road.receiveShadow = true;
+                scene.add(road);
+
+                const stripeCount = Math.floor(length / 8);
+                for (let i = -stripeCount / 2; i < stripeCount / 2; i++) {
+                    const stripeGeo = new THREE.PlaneGeometry(
+                        isHorizontal ? 4 : 0.5,
+                        isHorizontal ? 0.5 : 4
+                    );
+                    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                    stripe.rotation.x = -Math.PI / 2;
+                    stripe.position.set(
+                        isHorizontal ? x + i * 8 : x,
+                        0.03,
+                        isHorizontal ? z : z + i * 8
+                    );
+                    scene.add(stripe);
+                }
+
+                const sidewalkMat = new THREE.MeshLambertMaterial({ color: '#cbd5e1' });
+                const swWidth = 2.5;
+                const swGeo = new THREE.BoxGeometry(
+                    isHorizontal ? length : swWidth,
+                    0.15,
+                    isHorizontal ? swWidth : length
+                );
+
+                const sw1 = new THREE.Mesh(swGeo, sidewalkMat);
+                const sw2 = new THREE.Mesh(swGeo, sidewalkMat);
+                sw1.receiveShadow = true;
+                sw2.receiveShadow = true;
+
+                if (isHorizontal) {
+                    sw1.position.set(x, 0.075, z - width / 2 - swWidth / 2);
+                    sw2.position.set(x, 0.075, z + width / 2 + swWidth / 2);
+                } else {
+                    sw1.position.set(x - width / 2 - swWidth / 2, 0.075, z);
+                    sw2.position.set(x + width / 2 + swWidth / 2, 0.075, z);
+                }
+                scene.add(sw1);
+                scene.add(sw2);
+            }
+
+            const roadGridCoords = [-320, -240, -160, -80, 0, 80, 160, 240, 320];
+            roadGridCoords.forEach(pos => {
+                createRoad(0, pos, 12, WORLD_BOUNDS * 2, true);
+                createRoad(pos, 0, 12, WORLD_BOUNDS * 2, false);
+            });
+
+            function createHouse(x, z, rotY, bodyColor, roofColor) {
+                const group = new THREE.Group();
+                group.position.set(x, 0, z);
+                group.rotation.y = rotY;
+
+                const houseW = 11;
+                const houseH = 6.5;
+                const houseD = 9.5;
+
+                const bodyGeo = new THREE.BoxGeometry(houseW, houseH, houseD);
+                const bodyMat = new THREE.MeshLambertMaterial({ color: bodyColor });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.y = houseH / 2;
+                body.castShadow = true;
+                body.receiveShadow = true;
+                group.add(body);
+
+                const roofGeo = new THREE.ConeGeometry(8.5, 4.2, 4);
+                const roofMat = new THREE.MeshLambertMaterial({ color: roofColor });
+                const roof = new THREE.Mesh(roofGeo, roofMat);
+                roof.position.y = houseH + 2.1;
+                roof.rotation.y = Math.PI / 4;
+                roof.scale.set(1, 1, 1.2);
+                roof.castShadow = true;
+                group.add(roof);
+
+                const doorGeo = new THREE.BoxGeometry(2, 3.5, 0.2);
+                const doorMat = new THREE.MeshLambertMaterial({ color: '#78350f' });
+                const door = new THREE.Mesh(doorGeo, doorMat);
+                door.position.set(0, 1.75, houseD / 2 + 0.1);
+                group.add(door);
+
+                const winMat = new THREE.MeshPhongMaterial({ color: '#38bdf8', shininess: 80 });
+                const winFrameMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+
+                function addWindow(wx, wy, wz) {
+                    const winGeo = new THREE.BoxGeometry(1.8, 1.8, 0.15);
+                    const win = new THREE.Mesh(winGeo, winMat);
+                    win.position.set(wx, wy, wz);
+
+                    const frameGeo = new THREE.BoxGeometry(2.0, 2.0, 0.08);
+                    const frame = new THREE.Mesh(frameGeo, winFrameMat);
+                    frame.position.set(wx, wy, wz - 0.02);
+
+                    group.add(frame);
+                    group.add(win);
+                }
+
+                addWindow(-3.0, 4.0, houseD / 2 + 0.1);
+                addWindow(3.0, 4.0, houseD / 2 + 0.1);
+
+                const fenceMat = new THREE.MeshLambertMaterial({ color: '#f8fafc' });
+                for (let fx = -6; fx <= 6; fx += 2) {
+                    if (Math.abs(fx) > 2) {
+                        const picketGeo = new THREE.BoxGeometry(0.2, 1.2, 0.1);
+                        const picket = new THREE.Mesh(picketGeo, fenceMat);
+                        picket.position.set(fx, 0.6, houseD / 2 + 3);
+                        group.add(picket);
+                    }
+                }
+
+                scene.add(group);
+
+                const pad = 0.5;
+                if (Math.abs(rotY) < 0.1 || Math.abs(rotY - Math.PI) < 0.1) {
+                    physics.addBox(x - houseW / 2 - pad, x + houseW / 2 + pad, z - houseD / 2 - pad, z + houseD / 2 + pad);
+                } else {
+                    physics.addBox(x - houseD / 2 - pad, x + houseD / 2 + pad, z - houseW / 2 - pad, z + houseW / 2 + pad);
+                }
+            }
+
+            function createTree(x, z) {
+                const group = new THREE.Group();
+                group.position.set(x, 0, z);
+
+                const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, 3, 7);
+                const trunkMat = new THREE.MeshLambertMaterial({ color: '#78350f' });
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 1.5;
+                trunk.castShadow = true;
+                group.add(trunk);
+
+                const foliageMat = new THREE.MeshLambertMaterial({ color: '#166534' });
+                for (let i = 0; i < 3; i++) {
+                    const coneGeo = new THREE.ConeGeometry(3.2 - i * 0.7, 3.5, 7);
+                    const cone = new THREE.Mesh(coneGeo, foliageMat);
+                    cone.position.y = 3.5 + i * 1.8;
+                    cone.castShadow = true;
+                    group.add(cone);
+                }
+
+                scene.add(group);
+                physics.addCircle(x, z, 0.8);
+            }
+
+            function createLightPost(x, z) {
+                const group = new THREE.Group();
+                group.position.set(x, 0, z);
+
+                const postMat = new THREE.MeshLambertMaterial({ color: '#1e293b' });
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 6, 8), postMat);
+                post.position.y = 3;
+                group.add(post);
+
+                const lamp = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.5, 12, 12),
+                    new THREE.MeshBasicMaterial({ color: '#fef08a' })
+                );
+                lamp.position.y = 6;
+                group.add(lamp);
+
+                scene.add(group);
+                physics.addCircle(x, z, 0.4);
+            }
+
+            const housePalette = [
+                { body: '#3b82f6', roof: '#1e3a8a' },
+                { body: '#ef4444', roof: '#7f1d1d' },
+                { body: '#10b981', roof: '#064e3b' },
+                { body: '#f59e0b', roof: '#78350f' },
+                { body: '#8b5cf6', roof: '#4c1d95' }
+            ];
+
+            const blockCenters = [-280, -200, -120, -40, 40, 120, 200, 280];
+            let idx = 0;
+            for (let bx of blockCenters) {
+                for (let bz of blockCenters) {
+                    const p = housePalette[idx % housePalette.length];
+                    createHouse(bx - 12, bz - 12, 0, p.body, p.roof);
+                    createHouse(bx + 12, bz + 12, Math.PI, p.roof, p.body);
+                    createTree(bx + 18, bz - 18);
+                    createTree(bx - 18, bz + 18);
+                    createLightPost(bx - 22, bz - 22);
+                    idx++;
+                }
+            }
+        }
+
+        build3XSuburbanTown();
+
+        class SmileyManager {
+            constructor() {
+                this.smileys = [];
+                this.smileyTexture = createSmileyTexture();
+                this.rainbowSmileyTexture = createRainbowSmileyTexture();
+                
+                this.smileyMaterial = new THREE.SpriteMaterial({ map: this.smileyTexture, transparent: true });
+                this.rainbowSmileyMaterial = new THREE.SpriteMaterial({ map: this.rainbowSmileyTexture, transparent: true });
+                
+                this.spawnInitialSmileys();
+            }
+
+            getRandomValidPosition() {
+                let x, z, isBlocked;
+                let attempts = 0;
+                do {
+                    attempts++;
+                    x = (Math.random() - 0.5) * (WORLD_BOUNDS * 1.8);
+                    z = (Math.random() - 0.5) * (WORLD_BOUNDS * 1.8);
+                    isBlocked = physics.isPositionBlocked(x, z, 2.0);
+                } while (isBlocked && attempts < 200);
+
+                return { x, z };
+            }
+
+            spawnInitialSmileys() {
+                for (let i = 0; i < MAX_SMILEYS; i++) {
+                    totalSmileysSpawnedCount++;
+                    const isRainbow = (totalSmileysSpawnedCount % 10 === 0);
+
+                    const pos = this.getRandomValidPosition();
+                    const mat = isRainbow ? this.rainbowSmileyMaterial.clone() : this.smileyMaterial.clone();
+                    const sprite = new THREE.Sprite(mat);
+                    sprite.scale.set(isRainbow ? 2.2 : 1.5, isRainbow ? 2.2 : 1.5, 1.5);
+                    
+                    const smileyObj = {
+                        sprite: sprite,
+                        x: pos.x,
+                        z: pos.z,
+                        baseY: 1.1,
+                        phase: Math.random() * Math.PI * 2,
+                        active: true,
+                        respawnTimer: 0,
+                        isRainbow: isRainbow
+                    };
+
+                    sprite.position.set(pos.x, smileyObj.baseY, pos.z);
+                    scene.add(sprite);
+                    this.smileys.push(smileyObj);
+                }
+            }
+
+            update(dt, playerX, playerZ) {
+                const now = performance.now() * 0.003;
+
+                for (let i = 0; i < this.smileys.length; i++) {
+                    const item = this.smileys[i];
+
+                    if (item.active) {
+                        const bob = Math.sin(now * 3.5 + item.phase) * 0.22;
+                        const baseScale = item.isRainbow ? 2.2 : 1.4;
+                        const pulse = baseScale + Math.sin(now * 5.0 + item.phase) * (item.isRainbow ? 0.35 : 0.15);
+                        
+                        item.sprite.position.y = item.baseY + bob;
+                        item.sprite.scale.set(pulse, pulse, 1.0);
+
+                        const dx = playerX - item.x;
+                        const dz = playerZ - item.z;
+                        const distanceSq = dx * dx + dz * dz;
+
+                        if (distanceSq < 2.0 * 2.0) {
+                            item.active = false;
+                            item.sprite.visible = false;
+                            item.respawnTimer = 3.0 + Math.random() * 2.0;
+
+                            smileysCollectedCount++;
+                            const scoreElem = document.getElementById('smiley-score');
+                            scoreElem.textContent = smileysCollectedCount;
+                            scoreElem.classList.remove('score-pop');
+                            void scoreElem.offsetWidth;
+                            scoreElem.classList.add('score-pop');
+
+                            if (item.isRainbow) {
+                                // TRIGGER 4-SECOND RAINBOW FRENZY MODE (+500% SPEED SCALE TO EVERYTHING)
+                                rainbowFrenzyTimer = 4.0;
+                                audioEngine.triggerRainbowFrenzyScream();
+                            } else {
+                                audioEngine.triggerPickupPickupPitchSwell ? audioEngine.triggerPickupPitchSwell() : audioEngine.triggerPickupPitchSwell();
+                                // Spike Enhanced Chromatic Aberration Screen Burst
+                                chromaticIntensity = 1.0;
+                            }
+                        }
+                    } else {
+                        item.respawnTimer -= dt;
+                        if (item.respawnTimer <= 0) {
+                            totalSmileysSpawnedCount++;
+                            const isRainbow = (totalSmileysSpawnedCount % 10 === 0);
+
+                            const newPos = this.getRandomValidPosition();
+                            item.x = newPos.x;
+                            item.z = newPos.z;
+                            item.baseY = 1.1;
+                            item.isRainbow = isRainbow;
+                            
+                            item.sprite.material = isRainbow ? this.rainbowSmileyMaterial.clone() : this.smileyMaterial.clone();
+                            item.sprite.position.set(newPos.x, item.baseY, newPos.z);
+                            item.sprite.visible = true;
+                            item.active = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        const smileyManager = new SmileyManager();
+
+        function moveEnemyWithCollision(enemy, targetX, targetZ, speed, dt) {
+            const dx = targetX - enemy.x;
+            const dz = targetZ - enemy.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist < 0.001) return;
+
+            const moveStep = speed * dt;
+            const dirX = dx / dist;
+            const dirZ = dz / dist;
+
+            const attemptX = enemy.x + dirX * moveStep;
+            const attemptZ = enemy.z + dirZ * moveStep;
+
+            let res = physics.resolveMovement(enemy.x, enemy.z, attemptX, attemptZ, 0.9);
+            
+            // Wall-sliding tangent steering if blocked
+            const movedDist = Math.hypot(res.x - enemy.x, res.z - enemy.z);
+            if (movedDist < moveStep * 0.3) {
+                const leftX = enemy.x - dirZ * moveStep;
+                const leftZ = enemy.z + dirX * moveStep;
+                let resLeft = physics.resolveMovement(enemy.x, enemy.z, leftX, leftZ, 0.9);
+                
+                if (Math.hypot(resLeft.x - enemy.x, resLeft.z - enemy.z) > movedDist) {
+                    res = resLeft;
+                } else {
+                    const rightX = enemy.x + dirZ * moveStep;
+                    const rightZ = enemy.z - dirX * moveStep;
+                    let resRight = physics.resolveMovement(enemy.x, enemy.z, rightX, rightZ, 0.9);
+                    if (Math.hypot(resRight.x - enemy.x, resRight.z - enemy.z) > movedDist) {
+                        res = resRight;
+                    }
+                }
+            }
+
+            enemy.x = res.x;
+            enemy.z = res.z;
+        }
+
+        class RedPineapple {
+            constructor() {
+                this.texture = createRedEnemyTexture();
+                this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texture, transparent: true }));
+                this.sprite.scale.set(2.6, 3.0, 1);
+
+                this.spawnX = 150;
+                this.spawnZ = 150;
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+
+                this.animTimer = 0;
+                this.state = 'chase';
+                this.stateTimer = 10.0;
+                this.noclip = true;
+
+                scene.add(this.sprite);
+            }
+
+            update(dt, playerX, playerZ, speedMultiplier) {
+                const dx = playerX - this.x;
+                const dz = playerZ - this.z;
+                const dist = Math.hypot(dx, dz);
+
+                this.stateTimer -= dt;
+                if (this.stateTimer <= 0) {
+                    if (this.state === 'chase') {
+                        this.state = 'retreat';
+                        this.stateTimer = 3.5;
+                    } else {
+                        this.state = 'chase';
+                        this.stateTimer = 10.0;
+                    }
+                }
+
+                let speed, dirX = 0, dirZ = 0;
+                if (this.state === 'chase') {
+                    speed = PLAYER_SPEED * 0.88 * speedMultiplier; // 48.4 units/s scaled
+                    if (dist > 0.001) { dirX = dx / dist; dirZ = dz / dist; }
+                } else {
+                    speed = PLAYER_SPEED * 1.20 * speedMultiplier; // 66.0 units/s retreat scaled
+                    if (dist > 0.001) { dirX = -dx / dist; dirZ = -dz / dist; }
+                }
+
+                // Noclip direct coordinate progression
+                this.x += dirX * speed * dt;
+                this.z += dirZ * speed * dt;
+
+                this.animTimer += dt * 15 * speedMultiplier;
+                this.sprite.position.set(this.x, 1.5 + Math.abs(Math.sin(this.animTimer)) * 0.22, this.z);
+
+                if (dist < 1.8) triggerCatchGameOver();
+            }
+
+            reset() {
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.state = 'chase';
+                this.stateTimer = 10.0;
+                this.sprite.position.set(this.x, 1.5, this.z);
+            }
+        }
+
+        class BluePineapple {
+            constructor() {
+                this.texture = createBlueEnemyTexture();
+                this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texture, transparent: true }));
+                this.sprite.scale.set(2.6, 3.0, 1);
+
+                this.spawnX = -150;
+                this.spawnZ = 150;
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+
+                this.animTimer = 0;
+                this.baseSpeed = PLAYER_SPEED * 0.85; // 46.75 units/s
+
+                scene.add(this.sprite);
+            }
+
+            update(dt, playerX, playerZ, pVelX, pVelZ, speedMultiplier) {
+                // Intercept lead prediction point ahead of player velocity
+                const leadTime = 1.5;
+                const targetX = playerX + pVelX * leadTime;
+                const targetZ = playerZ + pVelZ * leadTime;
+
+                moveEnemyWithCollision(this, targetX, targetZ, this.baseSpeed * speedMultiplier, dt);
+
+                this.animTimer += dt * 14 * speedMultiplier;
+                this.sprite.position.set(this.x, 1.5 + Math.abs(Math.sin(this.animTimer)) * 0.22, this.z);
+
+                if (Math.hypot(playerX - this.x, playerZ - this.z) < 1.8) triggerCatchGameOver();
+            }
+
+            reset() {
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+            }
+        }
+
+        class PurplePineapple {
+            constructor() {
+                this.texture = createPurpleEnemyTexture();
+                this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texture, transparent: true }));
+                this.sprite.scale.set(2.6, 3.0, 1);
+
+                this.spawnX = 150;
+                this.spawnZ = -150;
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+
+                this.animTimer = 0;
+                this.baseSpeed = PLAYER_SPEED * 0.86; // 47.3 units/s
+                this.state = 'chase';
+                this.stateTimer = 8.0;
+
+                scene.add(this.sprite);
+            }
+
+            update(dt, playerX, playerZ, speedMultiplier) {
+                const distToPlayer = Math.hypot(playerX - this.x, playerZ - this.z);
+
+                this.stateTimer -= dt;
+                if (this.stateTimer <= 0) {
+                    if (this.state === 'chase') {
+                        this.state = 'ambush';
+                        this.stateTimer = 6.0;
+                    } else {
+                        this.state = 'chase';
+                        this.stateTimer = 8.0;
+                    }
+                }
+
+                let targetX = playerX;
+                let targetZ = playerZ;
+
+                // Ambush mode: tries to flank off to the side around corners unless within close proximity (18 units)
+                if (this.state === 'ambush' && distToPlayer > 18.0) {
+                    targetX = playerX + Math.sin(performance.now() * 0.001) * 35.0;
+                    targetZ = playerZ + Math.cos(performance.now() * 0.001) * 35.0;
+                }
+
+                moveEnemyWithCollision(this, targetX, targetZ, this.baseSpeed * speedMultiplier, dt);
+
+                this.animTimer += dt * 14.5 * speedMultiplier;
+                this.sprite.position.set(this.x, 1.5 + Math.abs(Math.sin(this.animTimer)) * 0.22, this.z);
+
+                if (distToPlayer < 1.8) triggerCatchGameOver();
+            }
+
+            reset() {
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.state = 'chase';
+                this.stateTimer = 8.0;
+                this.sprite.position.set(this.x, 1.5, this.z);
+            }
+        }
+
+        class GreenPineapple {
+            constructor() {
+                this.texture = createGreenEnemyTexture();
+                this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texture, transparent: true }));
+                this.sprite.scale.set(2.6, 3.0, 1);
+
+                this.spawnX = -150;
+                this.spawnZ = -150;
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+
+                this.animTimer = 0;
+                this.baseSpeed = PLAYER_SPEED * 0.82; // 45.1 units/s (steady pressure)
+
+                scene.add(this.sprite);
+            }
+
+            update(dt, playerX, playerZ, speedMultiplier) {
+                // Persistent direct tracking toward player
+                moveEnemyWithCollision(this, playerX, playerZ, this.baseSpeed * speedMultiplier, dt);
+
+                this.animTimer += dt * 13 * speedMultiplier;
+                this.sprite.position.set(this.x, 1.5 + Math.abs(Math.sin(this.animTimer)) * 0.22, this.z);
+
+                if (Math.hypot(playerX - this.x, playerZ - this.z) < 1.8) triggerCatchGameOver();
+            }
+
+            reset() {
+                this.x = this.spawnX;
+                this.z = this.spawnZ;
+                this.sprite.position.set(this.x, 1.5, this.z);
+            }
+        }
+
+        const redEnemy = new RedPineapple();
+        const blueEnemy = new BluePineapple();
+        const purpleEnemy = new PurplePineapple();
+        const greenEnemy = new GreenPineapple();
+
+        const pineappleMap = createPineappleTexture();
+        const pineappleMat = new THREE.SpriteMaterial({ map: pineappleMap, transparent: true });
+        const pineapplePlayer = new THREE.Sprite(pineappleMat);
+        pineapplePlayer.scale.set(2.2, 2.6, 1);
+        pineapplePlayer.position.set(0, 1.3, 0);
+        scene.add(pineapplePlayer);
+
+        const playerState = {
+            posX: 0,
+            posZ: 0,
+            velX: 0,
+            velZ: 0,
+            animTimer: 0
+        };
+
+        function triggerCatchGameOver() {
+            if (isGameOver) return;
+            isGameOver = true;
+
+            audioEngine.triggerCatchScream();
+            audioEngine.setMasterVolume(1.2);
+
+            const catchOverlay = document.getElementById('catch-overlay');
+            if (catchOverlay) {
+                catchOverlay.classList.remove('hidden');
+            }
+
+            const flash = document.getElementById('catch-flash');
+            if (flash) {
+                flash.classList.remove('flash-active');
+                void flash.offsetWidth;
+                flash.classList.add('flash-active');
+            }
+        }
+
+        function respawnGame() {
+            if (!isGameOver) return;
+            isGameOver = false;
+
+            const catchOverlay = document.getElementById('catch-overlay');
+            if (catchOverlay) {
+                catchOverlay.classList.add('hidden');
+            }
+
+            const flash = document.getElementById('catch-flash');
+            if (flash) {
+                flash.classList.remove('flash-active');
+            }
+
+            audioEngine.setMasterVolume(0.35);
+
+            smileysCollectedCount = 0;
+            rainbowFrenzyTimer = 0.0;
+            currentSpeedMultiplier = 1.0;
+            
+            const rainbowElem = document.getElementById('rainbow-overlay');
+            if (rainbowElem) {
+                rainbowElem.style.opacity = '0';
+                rainbowElem.classList.remove('rainbow-frenzy-active');
+            }
+
+            const scoreElem = document.getElementById('smiley-score');
+            if (scoreElem) scoreElem.textContent = '0';
+
+            playerState.posX = 0;
+            playerState.posZ = 0;
+            playerState.velX = 0;
+            playerState.velZ = 0;
+            pineapplePlayer.position.set(0, 1.3, 0);
+
+            // Reset all 4 pineapples back to separate safe spawn locations
+            redEnemy.reset();
+            blueEnemy.reset();
+            purpleEnemy.reset();
+            greenEnemy.reset();
+
+            if (isGameStarted && !isPointerLocked) {
+                requestLock();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.code)) {
+                keys[e.key] = true;
+            }
+            if (e.key === 'Shift') keys.Shift = true;
+
+            if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+                keys.Space = true;
+                if (isGameOver) {
+                    respawnGame();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.code)) {
+                keys[e.key] = false;
+            }
+            if (e.key === 'Shift') keys.Shift = false;
+            if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') keys.Space = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isPointerLocked) return;
+            const sensitivity = 0.0025;
+            cameraYaw -= e.movementX * sensitivity;
+            cameraPitch += e.movementY * sensitivity;
+            cameraPitch = Math.max(0.08, Math.min(Math.PI / 2.2, cameraPitch));
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = (document.pointerLockElement === canvas);
+            const resumePrompt = document.getElementById('resume-prompt');
+            if (!isPointerLocked && isGameStarted && !isGameOver) {
+                resumePrompt.classList.remove('hidden');
+            } else {
+                resumePrompt.classList.add('hidden');
+            }
+        });
+
+        function requestLock() {
+            canvas.requestPointerLock();
+        }
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audioEngine.init();
+            
+            const startOverlay = document.getElementById('start-overlay');
+            startOverlay.classList.add('opacity-0');
+            setTimeout(() => {
+                startOverlay.classList.add('hidden');
+            }, 300);
+
+            document.getElementById('hud-overlay').classList.remove('hidden');
+
+            isGameStarted = true;
+            requestLock();
+        });
+
+        document.getElementById('catch-overlay').addEventListener('click', () => {
+            if (isGameOver) {
+                respawnGame();
+            }
+        });
+
+        document.getElementById('resume-prompt').addEventListener('click', () => {
+            if (isGameStarted && !isGameOver) requestLock();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            // Drifting Cloud Animation
+            if (window.driftingClouds) {
+                window.driftingClouds.forEach(cloud => {
+                    cloud.position.x += dt * cloud.userData.speed;
+                    if (cloud.position.x > WORLD_BOUNDS * 1.2) {
+                        cloud.position.x = -WORLD_BOUNDS * 1.2;
+                    }
+                });
+            }
+
+            // Rainbow Frenzy Timer & Overlay Logic (4 Seconds +500% Hyper-Speed Frenzy)
+            const rainbowOverlay = document.getElementById('rainbow-overlay');
+            if (rainbowFrenzyTimer > 0) {
+                rainbowFrenzyTimer = Math.max(0, rainbowFrenzyTimer - dt);
+                currentSpeedMultiplier = 6.0; // +500% speed increase (6x normal base speed)
+
+                if (rainbowOverlay) {
+                    rainbowOverlay.style.opacity = '0.85';
+                    rainbowOverlay.classList.add('rainbow-frenzy-active');
+                }
+            } else {
+                currentSpeedMultiplier = 1.0;
+                if (rainbowOverlay) {
+                    rainbowOverlay.style.opacity = '0';
+                    rainbowOverlay.classList.remove('rainbow-frenzy-active');
+                }
+            }
+
+            // Decay Chromatic Aberration Screen Burst (Extended to ~3.0 Seconds smooth fade)
+            if (chromaticIntensity > 0) {
+                chromaticIntensity = Math.max(0, chromaticIntensity - dt / 3.0);
+                const chromaticElem = document.getElementById('chromatic-overlay');
+                if (chromaticElem) {
+                    chromaticElem.style.opacity = chromaticIntensity.toFixed(3);
+                }
+            }
+
+            // Gameplay Movement & Enemy Updates
+            if (isGameStarted && !isGameOver) {
+                let inputX = 0;
+                let inputZ = 0;
+
+                if (keys.w || keys.W || keys.ArrowUp) inputZ -= 1;
+                if (keys.s || keys.S || keys.ArrowDown) inputZ += 1;
+                if (keys.a || keys.A || keys.ArrowLeft) inputX -= 1;
+                if (keys.d || keys.D || keys.ArrowRight) inputX += 1;
+
+                const inputLen = Math.hypot(inputX, inputZ);
+                const baseVel = keys.Shift ? SPRINT_SPEED : PLAYER_SPEED;
+                const currentSpeed = baseVel * currentSpeedMultiplier;
+
+                if (inputLen > 0) {
+                    inputX /= inputLen;
+                    inputZ /= inputLen;
+
+                    const sinY = Math.sin(cameraYaw);
+                    const cosY = Math.cos(cameraYaw);
+                    
+                    const moveDirX = inputX * cosY + inputZ * sinY;
+                    const moveDirZ = -inputX * sinY + inputZ * cosY;
+
+                    playerState.velX = moveDirX * currentSpeed;
+                    playerState.velZ = moveDirZ * currentSpeed;
+
+                    const targetX = playerState.posX + playerState.velX * dt;
+                    const targetZ = playerState.posZ + playerState.velZ * dt;
+
+                    const resolved = physics.resolveMovement(playerState.posX, playerState.posZ, targetX, targetZ, 0.6);
+                    playerState.posX = resolved.x;
+                    playerState.posZ = resolved.z;
+
+                    playerState.animTimer += dt * currentSpeed * 0.3;
+                } else {
+                    playerState.velX = 0;
+                    playerState.velZ = 0;
+                }
+
+                const bobOffset = Math.abs(Math.sin(playerState.animTimer * 2.5)) * 0.22;
+                pineapplePlayer.position.set(playerState.posX, 1.3 + bobOffset, playerState.posZ);
+
+                // Update Pineapple Squad with Global Speed Scaling
+                redEnemy.update(dt, playerState.posX, playerState.posZ, currentSpeedMultiplier);
+                blueEnemy.update(dt, playerState.posX, playerState.posZ, playerState.velX, playerState.velZ, currentSpeedMultiplier);
+                purpleEnemy.update(dt, playerState.posX, playerState.posZ, currentSpeedMultiplier);
+                greenEnemy.update(dt, playerState.posX, playerState.posZ, currentSpeedMultiplier);
+
+                // Update Collectibles
+                smileyManager.update(dt, playerState.posX, playerState.posZ);
+            }
+
+            // Follow Camera Positioning
+            const targetCamX = playerState.posX + Math.sin(cameraYaw) * cameraDistance * Math.cos(cameraPitch);
+            const targetCamY = 1.3 + Math.sin(cameraPitch) * cameraDistance;
+            const targetCamZ = playerState.posZ + Math.cos(cameraYaw) * cameraDistance * Math.cos(cameraPitch);
+
+            camera.position.set(targetCamX, targetCamY, targetCamZ);
+            camera.lookAt(playerState.posX, 1.5, playerState.posZ);
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            animate();
+        };
+    </script>
+</body>
+</html>
