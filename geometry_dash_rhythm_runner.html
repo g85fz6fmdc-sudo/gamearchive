@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry Dash: Rhythm Runner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05050a;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Aspect ratio container for responsive 16:9 canvas scaling */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 Aspect Ratio */
+            max-height: 100vh;
+            max-width: 177.78vh; /* 16:9 Aspect Ratio */
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* UI Overlay Elements */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 5, 12, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            transition: opacity 0.25s ease;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #00f0ff, #ff007f, #ffe600);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a5c0;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 16px 48px;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #00f0ff, #ff007f);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 35px rgba(255, 0, 127, 0.6);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .controls-hint {
+            margin-top: 25px;
+            font-size: 0.95rem;
+            color: #707595;
+            display: flex;
+            gap: 20px;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #00f0ff;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            font-weight: bold;
+        }
+
+        /* Stats Card on Victory */
+        .stats-card {
+            background: rgba(20, 20, 35, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            padding: 20px 40px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .stat-line {
+            font-size: 1.2rem;
+            color: #e0e5ff;
+            margin: 8px 0;
+        }
+
+        .stat-val {
+            color: #ffe600;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+        <!-- Start Overlay -->
+        <div id="start-overlay" class="overlay">
+            <h1 class="title">GEOMETRY DASH</h1>
+            <p class="subtitle">RHYTHM RUNNER</p>
+            <button id="start-btn" class="btn">CLICK TO PLAY</button>
+            <div class="controls-hint">
+                <span>JUMP: <span class="key-badge">SPACE</span> / <span class="key-badge">UP ARROW</span> / <span class="key-badge">LEFT CLICK</span> / <span class="key-badge">TAP</span></span>
+            </div>
+        </div>
+
+        <!-- Victory Overlay -->
+        <div id="victory-overlay" class="overlay hidden">
+            <h1 class="title" style="background: linear-gradient(135deg, #ffe600, #00ff66);">LEVEL COMPLETE!</h1>
+            <div class="stats-card">
+                <div class="stat-line">PROGRESS: <span class="stat-val">100%</span></div>
+                <div class="stat-line">ATTEMPTS TAKEN: <span id="stat-attempts" class="stat-val">1</span></div>
+            </div>
+            <button id="restart-btn" class="btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Target Locked Internal Resolution
+        const CANVAS_WIDTH = 1280;
+        const CANVAS_HEIGHT = 720;
+        const GRID_SIZE = 60;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const startOverlay = document.getElementById('start-overlay');
+        const victoryOverlay = document.getElementById('victory-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const statAttempts = document.getElementById('stat-attempts');
+
+        // Game Execution States
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, VICTORY
+        let attemptCount = 1;
+        let gameTime = 0;
+        let lastTimestamp = 0;
+        let beatPulse = 0;
+
+        // Key Input Tracking
+        const input = {
+            jumpPressed: false,
+            jumpHeld: false
+        };
+
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isInitialized = false;
+                this.bpm = 135;
+                this.stepTime = (60 / this.bpm) / 4; // 16th note step time
+                this.currentStep = 0;
+                this.nextStepTime = 0;
+                this.timerId = null;
+
+                // Melody notes (C Minor Pentatonic)
+                this.melodyNotes = [
+                    261.63, 311.13, 349.23, 392.00, 466.16, // C4, Eb4, F4, G4, Bb4
+                    523.25, 622.25, 698.46, 783.99, 932.33  // C5, Eb5, F5, G5, Bb5
+                ];
+                // Bass frequencies
+                this.bassNotes = [65.41, 77.78, 87.31, 98.00]; // C2, Eb2, F2, G2
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+                this.isInitialized = true;
+                this.startScheduler();
+            }
+
+            startScheduler() {
+                this.nextStepTime = this.ctx.currentTime + 0.05;
+                const schedule = () => {
+                    while (this.nextStepTime < this.ctx.currentTime + 0.2) {
+                        this.playStep(this.currentStep, this.nextStepTime);
+                        this.nextStepTime += this.stepTime;
+                        this.currentStep = (this.currentStep + 1) % 64;
+                    }
+                    this.timerId = setTimeout(schedule, 25);
+                };
+                schedule();
+            }
+
+            playStep(step, time) {
+                if (gameState !== 'PLAYING') return;
+
+                // Trigger beat pulse every quarter note (4 steps)
+                if (step % 4 === 0) {
+                    beatPulse = 1.0;
+                }
+
+                // 1. Kick Drum (Every 4 steps = 4/4 beat)
+                if (step % 4 === 0) {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.setValueAtTime(140, time);
+                    osc.frequency.exponentialRampToValueAtTime(38, time + 0.08);
+                    gain.gain.setValueAtTime(0.7, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.09);
+                }
+
+                // 2. Snare / Hi-Hat Noise
+                if (step % 8 === 4) { // Snare on 2 and 4
+                    const bufferSize = this.ctx.sampleRate * 0.1;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.value = 1000;
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.3, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(time);
+                    noise.stop(time + 0.1);
+                } else if (step % 2 === 1) { // Hi-Hat on off-beats
+                    const bufferSize = this.ctx.sampleRate * 0.03;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.value = 5000;
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.12, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(time);
+                    noise.stop(time + 0.03);
+                }
+
+                // 3. Driving Sawtooth Bassline
+                if (step % 2 === 0) {
+                    const bassIdx = Math.floor(step / 16) % this.bassNotes.length;
+                    const freq = this.bassNotes[bassIdx];
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const filter = this.ctx.createBiquadFilter();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, time);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(400, time);
+                    filter.frequency.exponentialRampToValueAtTime(150, time + 0.1);
+
+                    gain.gain.setValueAtTime(0.35, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.11);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.11);
+                }
+
+                // 4. Chiptune Square Lead Arpeggio
+                const leadPattern = [0, 2, 4, 7, 5, 3, 8, 6, 2, 4, 7, 9, 6, 4, 2, 0];
+                if (step % 2 === 0) {
+                    const noteIdx = leadPattern[(step / 2) % leadPattern.length];
+                    const freq = this.melodyNotes[noteIdx];
+
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, time);
+
+                    gain.gain.setValueAtTime(0.12, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.1);
+                }
+            }
+
+            playJumpSound() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(480, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playPadSound() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playOrbSound() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(1046.50, this.ctx.currentTime + 0.05); // C6
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playPortalSound() {
+                if (!this.isInitialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.15);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playDeathSound() {
+                if (!this.isInitialized) return;
+                // Noise burst + low pitch drop
+                const bufferSize = this.ctx.sampleRate * 0.3;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.3);
+                oscGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                noise.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.connect(oscGain);
+                oscGain.connect(this.ctx.destination);
+
+                noise.start();
+                noise.stop(this.ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playVictorySound() {
+                if (!this.isInitialized) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C Major Cascade
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const t = this.ctx.currentTime + idx * 0.12;
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t);
+                    gain.gain.setValueAtTime(0.3, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.4);
+                });
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        class Player {
+            constructor() {
+                this.size = 48;
+                this.x = 0;
+                this.y = 0;
+                this.vy = 0;
+                this.gravityDir = 1; // 1 = normal down, -1 = inverted up
+                this.isGrounded = false;
+                this.rotation = 0;
+                this.targetRotation = 0;
+                this.trail = [];
+                this.reset();
+            }
+
+            reset() {
+                this.x = 180;
+                this.y = 540 - this.size; // Standard Ground Y is 540
+                this.vy = 0;
+                this.gravityDir = 1;
+                this.isGrounded = true;
+                this.rotation = 0;
+                this.targetRotation = 0;
+                this.trail = [];
+            }
+
+            update(dt) {
+                // Apply Gravity Physics
+                const gravityAcc = 1.35 * this.gravityDir;
+                this.vy += gravityAcc;
+                this.y += this.vy;
+
+                // Continuous horizontal auto-run velocity
+                const runSpeed = 9.2;
+                this.x += runSpeed;
+
+                // Ground & Ceiling Boundaries
+                const groundY = 540;
+                const ceilingY = 120;
+
+                if (this.gravityDir === 1) { // Normal Gravity
+                    if (this.y >= groundY - this.size) {
+                        this.y = groundY - this.size;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                    } else {
+                        this.isGrounded = false;
+                    }
+                } else { // Inverted Gravity
+                    if (this.y <= ceilingY) {
+                        this.y = ceilingY;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                    } else {
+                        this.isGrounded = false;
+                    }
+                }
+
+                // Smooth mid-air Cube Rotation and snapping upon landing
+                if (!this.isGrounded) {
+                    this.rotation += 0.14 * this.gravityDir;
+                } else {
+                    // Snap rotation to nearest 90 degrees (PI/2)
+                    const snapAngle = Math.round(this.rotation / (Math.PI / 2)) * (Math.PI / 2);
+                    this.rotation += (snapAngle - this.rotation) * 0.35;
+                }
+
+                // Add trail particles
+                if (Math.random() < 0.6) {
+                    this.trail.push({
+                        x: this.x + this.size / 2 + (Math.random() * 10 - 5),
+                        y: this.y + this.size / 2 + (Math.random() * 10 - 5),
+                        size: Math.random() * 12 + 6,
+                        alpha: 0.8,
+                        color: this.gravityDir === 1 ? '#00f0ff' : '#ff007f'
+                    });
+                }
+
+                // Update trail
+                for (let i = this.trail.length - 1; i >= 0; i--) {
+                    this.trail[i].alpha -= 0.04;
+                    this.trail[i].size *= 0.94;
+                    if (this.trail[i].alpha <= 0) this.trail.splice(i, 1);
+                }
+            }
+
+            jump(force = -17.5) {
+                this.vy = force * this.gravityDir;
+                this.isGrounded = false;
+                audio.playJumpSound();
+            }
+
+            draw(ctx, cameraX) {
+                const screenX = this.x - cameraX;
+
+                // Render Trail
+                this.trail.forEach(t => {
+                    ctx.save();
+                    ctx.globalAlpha = t.alpha;
+                    ctx.fillStyle = t.color;
+                    ctx.fillRect(t.x - cameraX - t.size / 2, t.y - t.size / 2, t.size, t.size);
+                    ctx.restore();
+                });
+
+                // Render Cube Body
+                ctx.save();
+                ctx.translate(screenX + this.size / 2, this.y + this.size / 2);
+                ctx.rotate(this.rotation);
+
+                // Main Outer Cube
+                const grad = ctx.createLinearGradient(-this.size / 2, -this.size / 2, this.size / 2, this.size / 2);
+                if (this.gravityDir === 1) {
+                    grad.addColorStop(0, '#00f0ff');
+                    grad.addColorStop(1, '#0077ff');
+                } else {
+                    grad.addColorStop(0, '#ff007f');
+                    grad.addColorStop(1, '#9900ff');
+                }
+
+                ctx.fillStyle = grad;
+                ctx.shadowColor = this.gravityDir === 1 ? '#00f0ff' : '#ff007f';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+
+                // Inner Concentric Square Decor
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-this.size / 4, -this.size / 4, this.size / 2, this.size / 2);
+
+                // Center Icon Eye
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-6, -6, 12, 12);
+
+                ctx.restore();
+            }
+        }
+
+        class Level {
+            constructor() {
+                this.objects = [];
+                this.length = 0;
+                this.buildLevel();
+            }
+
+            buildLevel() {
+                this.objects = [];
+                const G = GRID_SIZE; // 60px
+                const GROUND_ROW = 9; // Y = 540
+                const CEILING_ROW = 2; // Y = 120
+
+                const addSpike = (gridX, gridY, inverted = false) => {
+                    this.objects.push({
+                        type: 'spike',
+                        x: gridX * G,
+                        y: gridY * G,
+                        w: G,
+                        h: G,
+                        inverted: inverted
+                    });
+                };
+
+                const addBlock = (gridX, gridY, wUnits = 1, hUnits = 1) => {
+                    this.objects.push({
+                        type: 'block',
+                        x: gridX * G,
+                        y: gridY * G,
+                        w: wUnits * G,
+                        h: hUnits * G
+                    });
+                };
+
+                const addPad = (gridX, gridY, inverted = false) => {
+                    this.objects.push({
+                        type: 'pad',
+                        x: gridX * G,
+                        y: gridY * G + (inverted ? 0 : G - 16),
+                        w: G,
+                        h: 16,
+                        inverted: inverted
+                    });
+                };
+
+                const addOrb = (gridX, gridY) => {
+                    this.objects.push({
+                        type: 'orb',
+                        x: gridX * G + G / 2,
+                        y: gridY * G + G / 2,
+                        radius: 22,
+                        used: false
+                    });
+                };
+
+                const addPortal = (gridX, gridY, targetGravity) => {
+                    this.objects.push({
+                        type: 'portal',
+                        x: gridX * G,
+                        y: gridY * G,
+                        w: 40,
+                        h: 140,
+                        targetGravity: targetGravity
+                    });
+                };
+
+                // --- SECTION 1: Warm Up (X: 10 to 50) ---
+                addSpike(18, 8);
+                addSpike(26, 8);
+                addSpike(34, 8);
+                addSpike(35, 8); // Double spike
+
+                addBlock(42, 8, 3, 1);
+                addSpike(43, 7);
+                addBlock(48, 7, 3, 2);
+
+                // --- SECTION 2: Platforming & Jump Pads (X: 52 to 110) ---
+                addPad(54, 8); // Launches to high platform
+                addBlock(58, 5, 8, 1);
+                addSpike(62, 4);
+
+                addBlock(70, 8, 2, 1);
+                addBlock(74, 7, 2, 2);
+                addBlock(78, 6, 2, 3);
+                addSpike(82, 8);
+                addSpike(83, 8);
+
+                addPad(88, 8); // Mega launch over long spike field
+                for (let i = 90; i <= 100; i++) {
+                    addSpike(i, 8);
+                }
+                addBlock(93, 4, 4, 1);
+                addBlock(102, 8, 3, 1);
+
+                // --- SECTION 3: Airborne Orbs Sequence (X: 112 to 170) ---
+                addSpike(112, 8);
+                addOrb(115, 6);
+                addSpike(118, 8);
+                addSpike(119, 8);
+
+                addOrb(125, 6);
+                addOrb(131, 4);
+                addBlock(136, 4, 4, 1);
+                addSpike(138, 3);
+
+                addOrb(146, 6);
+                addOrb(152, 5);
+                addOrb(158, 4);
+                addBlock(163, 8, 4, 1);
+
+                // --- SECTION 4: Gravity Flip Inversion Zone (X: 175 to 250) ---
+                addPortal(172, 6, -1); // Flip Gravity UP
+
+                // Upside Down Running on Ceiling (Y = 2, top surface Y = 120)
+                addSpike(185, 2, true);
+                addSpike(192, 2, true);
+                addSpike(193, 2, true);
+
+                addPad(200, 2, true); // Ceiling Pad launching downward
+                addBlock(204, 4, 6, 1); // Hanging middle block
+                addSpike(206, 5, false);
+
+                addOrb(216, 5);
+                addOrb(222, 4);
+
+                addBlock(228, 2, 6, 2); // Upside-down stepped block
+                addSpike(231, 4, true);
+
+                // --- SECTION 5: Gravity Normalization & Pit Hurdles (X: 252 to 330) ---
+                addPortal(246, 3, 1); // Flip Gravity DOWN back to normal floor
+
+                addSpike(256, 8);
+                addBlock(260, 8, 2, 1);
+                addBlock(264, 7, 2, 2);
+                addBlock(268, 6, 2, 3);
+                addSpike(272, 8);
+
+                // Deep Pit Hurdles with Chained Orbs
+                for (let i = 280; i <= 295; i++) {
+                    addSpike(i, 8);
+                }
+                addOrb(281, 6);
+                addOrb(286, 5);
+                addOrb(291, 6);
+
+                addBlock(297, 8, 4, 1);
+
+                // --- SECTION 6: Final Gauntlet Sprint (X: 332 to 430) ---
+                addSpike(308, 8);
+                addSpike(309, 8);
+                addSpike(310, 8); // Triple Spike!
+
+                addPad(316, 8);
+                addOrb(320, 4);
+                addBlock(324, 4, 5, 1);
+                addSpike(326, 3);
+
+                // Rapid Alternating Hurdles
+                addSpike(336, 8);
+                addOrb(339, 6);
+                addSpike(342, 8);
+                addPad(346, 8);
+                addOrb(350, 3);
+
+                addBlock(356, 7, 2, 2);
+                addBlock(362, 6, 2, 3);
+                addBlock(368, 5, 2, 4);
+
+                // Final Mega Spike Runway Bounce
+                for (let i = 376; i <= 395; i++) {
+                    addSpike(i, 8);
+                }
+                addPad(374, 8);
+                addOrb(381, 4);
+                addOrb(388, 4);
+                addBlock(397, 8, 8, 1);
+
+                // --- SECTION 7: Finish Line (X: 410) ---
+                this.objects.push({
+                    type: 'finish',
+                    x: 412 * G,
+                    y: 0,
+                    w: 20,
+                    h: 720
+                });
+
+                this.length = 415 * G;
+            }
+
+            draw(ctx, cameraX) {
+                const G = GRID_SIZE;
+
+                this.objects.forEach(obj => {
+                    const screenX = obj.x - cameraX;
+
+                    // Skip offscreen elements
+                    if (screenX + obj.w < -100 || screenX > CANVAS_WIDTH + 100) return;
+
+                    ctx.save();
+
+                    if (obj.type === 'spike') {
+                        // Neon Hazard Triangle
+                        ctx.shadowColor = '#ff0055';
+                        ctx.shadowBlur = 12;
+
+                        const grad = ctx.createLinearGradient(screenX, obj.y, screenX, obj.y + G);
+                        grad.addColorStop(0, '#ff0055');
+                        grad.addColorStop(1, '#660022');
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        if (!obj.inverted) {
+                            ctx.moveTo(screenX, obj.y + G);
+                            ctx.lineTo(screenX + G / 2, obj.y);
+                            ctx.lineTo(screenX + G, obj.y + G);
+                        } else {
+                            ctx.moveTo(screenX, obj.y);
+                            ctx.lineTo(screenX + G / 2, obj.y + G);
+                            ctx.lineTo(screenX + G, obj.y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // Glowing inner spike border
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                    } else if (obj.type === 'block') {
+                        // Semi-transparent Neon Block
+                        ctx.shadowColor = '#00f0ff';
+                        ctx.shadowBlur = 8;
+
+                        ctx.fillStyle = 'rgba(10, 20, 40, 0.9)';
+                        ctx.fillRect(screenX, obj.y, obj.w, obj.h);
+
+                        ctx.strokeStyle = '#00f0ff';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(screenX, obj.y, obj.w, obj.h);
+
+                        // Corner accent marks
+                        ctx.fillStyle = '#00f0ff';
+                        ctx.fillRect(screenX + 4, obj.y + 4, 6, 6);
+                        ctx.fillRect(screenX + obj.w - 10, obj.y + 4, 6, 6);
+                        ctx.fillRect(screenX + 4, obj.y + obj.h - 10, 6, 6);
+                        ctx.fillRect(screenX + obj.w - 10, obj.y + obj.h - 10, 6, 6);
+
+                    } else if (obj.type === 'pad') {
+                        // Glowing Yellow Spring Pad
+                        ctx.shadowColor = '#ffe600';
+                        ctx.shadowBlur = 15;
+                        ctx.fillStyle = '#ffe600';
+                        ctx.fillRect(screenX, obj.y, obj.w, obj.h);
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(screenX + 8, obj.y + 3, obj.w - 16, obj.h - 6);
+
+                    } else if (obj.type === 'orb') {
+                        // Floating Airborne Ring / Orb
+                        ctx.shadowColor = '#ffe600';
+                        ctx.shadowBlur = 20 + beatPulse * 10;
+
+                        // Outer Pulse Ring
+                        ctx.strokeStyle = obj.used ? '#555555' : '#ffe600';
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.arc(screenX, obj.y, obj.radius + (beatPulse * 4), 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Inner Glowing Core
+                        ctx.fillStyle = obj.used ? '#333333' : '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(screenX, obj.y, obj.radius * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+
+                    } else if (obj.type === 'portal') {
+                        // Gravity Inversion Portal
+                        const color = obj.targetGravity === -1 ? '#ff007f' : '#00f0ff';
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 25;
+
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 6;
+                        ctx.beginPath();
+                        ctx.ellipse(screenX + obj.w / 2, obj.y + obj.h / 2, obj.w / 2, obj.h / 2, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.fill();
+
+                    } else if (obj.type === 'finish') {
+                        // Glowing Golden Finish Line Banner
+                        ctx.shadowColor = '#ffe600';
+                        ctx.shadowBlur = 30;
+                        ctx.fillStyle = '#ffe600';
+                        ctx.fillRect(screenX, obj.y, obj.w, obj.h);
+                    }
+
+                    ctx.restore();
+                });
+            }
+        }
+
+        class ParticleSystem {
+            constructor() {
+                this.particles = [];
+                this.screenShake = 0;
+            }
+
+            explodeCube(x, y, color) {
+                this.screenShake = 20; // Trigger Screen Shake
+                for (let i = 0; i < 40; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 12 + 4;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: Math.random() * 14 + 6,
+                        color: Math.random() < 0.5 ? color : '#ffffff',
+                        alpha: 1.0,
+                        rotation: Math.random() * Math.PI * 2,
+                        vRot: (Math.random() - 0.5) * 0.3
+                    });
+                }
+            }
+
+            spawnVictoryFireworks() {
+                for (let i = 0; i < 5; i++) {
+                    const x = Math.random() * CANVAS_WIDTH;
+                    const y = Math.random() * (CANVAS_HEIGHT / 2);
+                    const colors = ['#00f0ff', '#ff007f', '#ffe600', '#00ff66'];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+
+                    for (let p = 0; p < 30; p++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = Math.random() * 10 + 2;
+                        this.particles.push({
+                            x: x,
+                            y: y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            size: Math.random() * 10 + 4,
+                            color: color,
+                            alpha: 1.0,
+                            rotation: 0,
+                            vRot: 0
+                        });
+                    }
+                }
+            }
+
+            update() {
+                if (this.screenShake > 0) this.screenShake *= 0.88;
+
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3; // Particle gravity
+                    p.rotation += p.vRot;
+                    p.alpha -= 0.02;
+                    p.size *= 0.97;
+
+                    if (p.alpha <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+            }
+
+            draw(ctx) {
+                this.particles.forEach(p => {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+            }
+        }
+
+        // Global Entities Initialization
+        const player = new Player();
+        const level = new Level();
+        const particles = new ParticleSystem();
+
+        function checkCollisions() {
+            const px = player.x;
+            const py = player.y;
+            const ps = player.size;
+
+            // Bounding Box Collision
+            level.objects.forEach(obj => {
+                // Ignore distant elements
+                if (obj.x > px + ps + 100 || obj.x + obj.w < px - 100) return;
+
+                if (obj.type === 'block') {
+                    // Precise AABB Block Checks
+                    if (px + ps > obj.x && px < obj.x + obj.w && py + ps > obj.y && py < obj.y + obj.h) {
+                        // Check Top Surface Landing (Normal Gravity)
+                        const prevPy = py - player.vy;
+                        if (player.gravityDir === 1 && prevPy + ps <= obj.y + 12) {
+                            player.y = obj.y - ps;
+                            player.vy = 0;
+                            player.isGrounded = true;
+                        }
+                        // Check Bottom Surface Landing (Inverted Gravity)
+                        else if (player.gravityDir === -1 && prevPy >= obj.y + obj.h - 12) {
+                            player.y = obj.y + obj.h;
+                            player.vy = 0;
+                            player.isGrounded = true;
+                        }
+                        // Side or Head-on Wall Crash
+                        else {
+                            killPlayer();
+                        }
+                    }
+
+                } else if (obj.type === 'spike') {
+                    // Inset forgiving Triangle Hitbox
+                    const inset = 8;
+                    if (px + ps - inset > obj.x + inset && px + inset < obj.x + obj.w - inset &&
+                        py + ps - inset > obj.y + inset && py + inset < obj.y + obj.h - inset) {
+                        killPlayer();
+                    }
+
+                } else if (obj.type === 'pad') {
+                    // Jump Pad Trigger
+                    if (px + ps > obj.x && px < obj.x + obj.w && py + ps > obj.y && py < obj.y + obj.h) {
+                        player.jump(player.gravityDir === 1 ? -23 : -23);
+                        audio.playPadSound();
+                        particles.explodeCube(player.x + ps / 2, player.y + ps / 2, '#ffe600');
+                    }
+
+                } else if (obj.type === 'orb') {
+                    // Jump Orb Trigger Radius
+                    const dx = (player.x + ps / 2) - obj.x;
+                    const dy = (player.y + ps / 2) - obj.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < obj.radius + ps / 2) {
+                        if (!obj.used && (input.jumpPressed || input.jumpHeld)) {
+                            obj.used = true;
+                            player.jump(-18);
+                            audio.playOrbSound();
+                            particles.explodeCube(obj.x, obj.y, '#ffe600');
+                            input.jumpPressed = false; // Consume buffer
+                        }
+                    }
+
+                } else if (obj.type === 'portal') {
+                    // Gravity Portal Trigger
+                    if (px + ps > obj.x && px < obj.x + obj.w && py + ps > obj.y && py < obj.y + obj.h) {
+                        if (player.gravityDir !== obj.targetGravity) {
+                            player.gravityDir = obj.targetGravity;
+                            audio.playPortalSound();
+                            particles.explodeCube(player.x + ps / 2, player.y + ps / 2, obj.targetGravity === -1 ? '#ff007f' : '#00f0ff');
+                        }
+                    }
+
+                } else if (obj.type === 'finish') {
+                    // Level Complete Trigger
+                    if (px + ps >= obj.x) {
+                        triggerVictory();
+                    }
+                }
+            });
+        }
+
+        function killPlayer() {
+            if (gameState !== 'PLAYING') return;
+
+            audio.playDeathSound();
+            particles.explodeCube(player.x + player.size / 2, player.y + player.size / 2, player.gravityDir === 1 ? '#00f0ff' : '#ff007f');
+
+            gameState = 'GAMEOVER';
+
+            // Instant zero-lag respawn after short shattering effect delay
+            setTimeout(() => {
+                attemptCount++;
+                respawn();
+            }, 350);
+        }
+
+        function respawn() {
+            player.reset();
+            // Reset orb usage
+            level.objects.forEach(o => { if (o.type === 'orb') o.used = false; });
+            gameState = 'PLAYING';
+        }
+
+        function triggerVictory() {
+            gameState = 'VICTORY';
+            audio.playVictorySound();
+            particles.spawnVictoryFireworks();
+            statAttempts.textContent = attemptCount;
+            victoryOverlay.classList.remove('hidden');
+        }
+
+        function renderHUD(progress) {
+            // Top Level Progress Bar
+            ctx.save();
+
+            // Bar Background Container
+            ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.fillRect(CANVAS_WIDTH / 2 - 250, 20, 500, 16);
+            ctx.strokeRect(CANVAS_WIDTH / 2 - 250, 20, 500, 16);
+
+            // Progress Fill Bar with Gradient
+            const fillWidth = Math.max(0, Math.min(500, (progress / 100) * 500));
+            const grad = ctx.createLinearGradient(CANVAS_WIDTH / 2 - 250, 0, CANVAS_WIDTH / 2 + 250, 0);
+            grad.addColorStop(0, '#00f0ff');
+            grad.addColorStop(0.5, '#ff007f');
+            grad.addColorStop(1, '#ffe600');
+
+            ctx.fillStyle = grad;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(CANVAS_WIDTH / 2 - 250, 20, fillWidth, 16);
+
+            // Progress Percentage Text
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.floor(progress)}%`, CANVAS_WIDTH / 2, 34);
+
+            // Active Attempt Counter
+            ctx.textAlign = 'left';
+            ctx.font = '800 20px sans-serif';
+            ctx.fillStyle = '#a0a5c0';
+            ctx.fillText(`ATTEMPT ${attemptCount}`, 30, 36);
+
+            ctx.restore();
+        }
+
+        function drawBackground(cameraX) {
+            // Pulsing Neon Grid Background
+            ctx.fillStyle = '#04040a';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(0, 240, 255, ${0.06 + beatPulse * 0.05})`;
+            ctx.lineWidth = 1;
+
+            const gridSize = 60;
+            const offsetX = -(cameraX * 0.3) % gridSize;
+
+            for (let x = offsetX; x < CANVAS_WIDTH; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+
+            for (let y = 0; y < CANVAS_HEIGHT; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Ground Surface Line
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#0a0a18';
+            ctx.fillRect(0, 540, CANVAS_WIDTH, 180);
+
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 540);
+            ctx.lineTo(CANVAS_WIDTH, 540);
+            ctx.stroke();
+
+            // Ceiling Surface Line
+            ctx.shadowColor = '#ff007f';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#0a0a18';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, 120);
+
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 120);
+            ctx.lineTo(CANVAS_WIDTH, 120);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+            lastTimestamp = timestamp;
+
+            // Decay beat pulse
+            beatPulse *= 0.9;
+
+            ctx.save();
+
+            // Handle Screen Shake on Death
+            if (particles.screenShake > 0.5) {
+                const shakeX = (Math.random() - 0.5) * particles.screenShake;
+                const shakeY = (Math.random() - 0.5) * particles.screenShake;
+                ctx.translate(shakeX, shakeY);
+            }
+
+            if (gameState === 'PLAYING') {
+                // Buffer Jumping Logic
+                if ((input.jumpPressed || input.jumpHeld) && player.isGrounded) {
+                    player.jump();
+                    input.jumpPressed = false; // Clear single press buffer
+                }
+
+                player.update(dt);
+                checkCollisions();
+            }
+
+            // Camera Tracking (Offset Player to left side of viewport)
+            const cameraX = Math.max(0, player.x - 240);
+
+            // Render World
+            drawBackground(cameraX);
+            level.draw(ctx, cameraX);
+
+            if (gameState === 'PLAYING' || gameState === 'VICTORY') {
+                player.draw(ctx, cameraX);
+            }
+
+            particles.update();
+            particles.draw(ctx);
+
+            // Render HUD Overlay
+            const progress = Math.min(100, Math.max(0, (player.x / level.length) * 100));
+            renderHUD(progress);
+
+            ctx.restore();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleJumpStart() {
+            if (gameState === 'PLAYING') {
+                input.jumpPressed = true;
+                input.jumpHeld = true;
+            }
+        }
+
+        function handleJumpEnd() {
+            input.jumpPressed = false;
+            input.jumpHeld = false;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (!input.jumpHeld) handleJumpStart();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                handleJumpEnd();
+            }
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) handleJumpStart();
+        });
+
+        canvas.addEventListener('mouseup', () => handleJumpEnd());
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleJumpStart();
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleJumpEnd();
+        }, { passive: false });
+
+        // UI Button Event Handlers
+        startBtn.addEventListener('click', () => {
+            audio.init();
+            startOverlay.classList.add('hidden');
+            gameState = 'PLAYING';
+            attemptCount = 1;
+            player.reset();
+        });
+
+        restartBtn.addEventListener('click', () => {
+            victoryOverlay.classList.add('hidden');
+            attemptCount = 1;
+            gameState = 'PLAYING';
+            player.reset();
+        });
+
+        // Start Animation Loop on load
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
