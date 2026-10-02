@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padded Cell - Dynamic Drawing & Surreal Engine</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Courier New', Courier, monospace;
+            color: #d1f2d9;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Distortion Color Overlay */
+        #distortion-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0;
+            mix-blend-mode: color-dodge;
+            transition: opacity 0.05s ease;
+        }
+
+        .flash-active {
+            animation: flashAnim 0.2s steps(2, start) infinite;
+        }
+
+        @keyframes flashAnim {
+            0% { background-color: rgba(0, 255, 230, 0.45); opacity: 0.95; }
+            50% { background-color: rgba(255, 0, 220, 0.45); opacity: 0.95; }
+            100% { background-color: rgba(255, 255, 255, 0.6); opacity: 0.95; }
+        }
+
+        /* Start / PointerLock Overlay */
+        #start-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(8, 12, 10, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #79f79c;
+            text-shadow: 0 0 10px rgba(121, 247, 156, 0.5);
+            cursor: pointer;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #start-overlay h1 {
+            font-size: 2.2rem;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        #start-overlay p {
+            font-size: 1rem;
+            max-width: 600px;
+            line-height: 1.6;
+            color: #a4cca8;
+            margin-bottom: 25px;
+        }
+
+        .start-btn {
+            border: 2px solid #79f79c;
+            padding: 12px 28px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            background: rgba(121, 247, 156, 0.1);
+            color: #79f79c;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        #start-overlay:hover .start-btn {
+            background: #79f79c;
+            color: #080c0a;
+            box-shadow: 0 0 15px rgba(121, 247, 156, 0.8);
+        }
+
+        /* Reticle Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #79f79c;
+            box-shadow: 0 0 5px rgba(121, 247, 156, 0.8);
+        }
+
+        #crosshair::before { width: 10px; height: 2px; }
+        #crosshair::after { width: 2px; height: 10px; }
+
+        /* HUD Containers */
+        .hud-panel {
+            position: fixed;
+            z-index: 40;
+            pointer-events: none;
+            background: rgba(6, 15, 10, 0.75);
+            border: 1px solid rgba(121, 247, 156, 0.3);
+            padding: 10px 16px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        #hud-tool {
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #color-preview {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #ffffff;
+            display: inline-block;
+            border-radius: 2px;
+        }
+
+        #hud-stability {
+            top: 20px;
+            right: 20px;
+            color: #79f79c;
+            font-weight: bold;
+        }
+
+        .hud-glitch {
+            color: #ff3366 !important;
+            text-shadow: 0 0 8px #ff3366;
+            animation: glitchText 0.1s infinite;
+        }
+
+        @keyframes glitchText {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(-2px, 1px); }
+            100% { transform: translate(1px, -1px); }
+        }
+
+        /* Color Palette Widget */
+        #palette-bar {
+            position: fixed;
+            bottom: 70px;
+            left: 20px;
+            z-index: 40;
+            display: none;
+            gap: 8px;
+            background: rgba(6, 15, 10, 0.85);
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(121, 247, 156, 0.3);
+            pointer-events: auto;
+        }
+
+        .color-swatch {
+            width: 26px;
+            height: 26px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 2px #000;
+            transition: transform 0.1s ease;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.15);
+        }
+
+        .color-swatch.active {
+            border-color: #ffffff;
+            box-shadow: 0 0 8px #ffffff;
+        }
+
+        /* Bottom Context Prompt */
+        #prompt-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 40;
+            pointer-events: none;
+            background: rgba(6, 15, 10, 0.85);
+            border: 1px solid rgba(121, 247, 156, 0.4);
+            padding: 10px 24px;
+            border-radius: 20px;
+            color: #d1f2d9;
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.9);
+        }
+
+        /* NPC Speech Bubble */
+        #npc-speech-bubble {
+            position: fixed;
+            z-index: 45;
+            background: rgba(255, 255, 240, 0.95);
+            color: #111111;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-family: Arial, sans-serif;
+            font-size: 0.9rem;
+            font-weight: bold;
+            max-width: 260px;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            display: none;
+            transform: translate(-50%, -100%);
+            border: 2px solid #222;
+        }
+
+        #npc-speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: rgba(255, 255, 240, 0.95) transparent;
+            display: block;
+            width: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="distortion-overlay"></div>
+    <div id="crosshair"></div>
+
+    <div id="start-overlay">
+        <h1>PADDED CELL 04</h1>
+        <p>Interactive 3D First-Person Surreal Sandbox.<br>Use WASD to move, Mouse to look.<br>Target props to equip drawing & cleaning tools.<br>Hold Left Click or 'E' on walls to draw/erase markings.</p>
+        <button class="start-btn">ENTER ENVIRONMENT</button>
+    </div>
+
+    <div id="hud-tool" class="hud-panel">
+        <span>EQUIPPED:</span>
+        <strong id="equipped-name">NONE</strong>
+        <span id="color-preview" style="display:none;"></span>
+    </div>
+
+    <div id="hud-stability" class="hud-panel">
+        SURREAL STABILITY: <span id="stability-val">100%</span>
+    </div>
+
+    <div id="palette-bar">
+        <div class="color-swatch active" style="background: #ff2222;" data-color="#ff2222" data-key="1">1</div>
+        <div class="color-swatch" style="background: #2266ff;" data-color="#2266ff" data-key="2">2</div>
+        <div class="color-swatch" style="background: #22cc44;" data-color="#22cc44" data-key="3">3</div>
+        <div class="color-swatch" style="background: #ffcc00;" data-color="#ffcc00" data-key="4">4</div>
+        <div class="color-swatch" style="background: #111111;" data-color="#111111" data-key="5">5</div>
+    </div>
+
+    <div id="prompt-bar">Click screen to lock mouse cursor</div>
+    <div id="npc-speech-bubble">...</div>
+
+    <script>
+        // Global Game State
+        let scene, camera, renderer, raycaster;
+        let isPointerLocked = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let prevTime = performance.now();
+
+        // Player Camera Rotation Bounds
+        let cameraPitch = 0;
+        let cameraYaw = 0;
+        let baseCameraRoll = 0;
+        let targetCameraRoll = 0;
+
+        // Tool & Palette State
+        let currentTool = 'none'; // 'none', 'crayon', 'eraser'
+        let activeColor = '#ff2222';
+        let isInteracting = false;
+        let lastDrawPos = [null, null, null, null]; // Per wall tracking
+
+        // Interactive & Collidable Objects
+        const collidableObjects = [];
+        let wallMeshes = [];
+        let wallCanvases = [];
+        let baseWallCanvases = [];
+        let wallTextures = [];
+        let crayonBoxProp = null;
+        let eraserProp = null;
+        let bedGroup = null;
+        let ceilingLight = null;
+        let currentTargetObject = null;
+
+        // Surreal Event & Flash Engine
+        let surrealTimer = 0;
+        let nextEventDelay = 22; // 20-30s
+        let flashTimer = 0;
+        let nextFlashDelay = 18; // 15-25s
+        let isSurrealEventActive = false;
+        let activeEventData = null;
+        let penguinNPC = null;
+
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        let humOsc = null;
+        let humGain = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+
+                // Fluorescent Overhead Light Hum Loop
+                humOsc = audioCtx.createOscillator();
+                humOsc.type = 'sawtooth';
+                humOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+                const humFilter = audioCtx.createBiquadFilter();
+                humFilter.type = 'lowpass';
+                humFilter.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+                humGain = audioCtx.createGain();
+                humGain.gain.setValueAtTime(0.025, audioCtx.currentTime);
+
+                humOsc.connect(humFilter);
+                humFilter.connect(humGain);
+                humGain.connect(audioCtx.destination);
+                humOsc.start();
+            } catch (e) {
+                console.warn("Web Audio API not fully supported", e);
+            }
+        }
+
+        function playPickupSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.14);
+        }
+
+        function playColorSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(650, now);
+            osc.frequency.exponentialRampToValueAtTime(320, now + 0.06);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.06);
+        }
+
+        function playCrayonSound() {
+            if (!audioCtx) return;
+            if (Math.random() < 0.35) {
+                const now = audioCtx.currentTime;
+                const bufferSize = Math.floor(audioCtx.sampleRate * 0.035);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1100 + Math.random() * 500, now);
+                filter.Q.setValueAtTime(2.5, now);
+
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.06, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                noise.start(now);
+            }
+        }
+
+        function playEraserSound() {
+            if (!audioCtx) return;
+            if (Math.random() < 0.3) {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                const freq = 1300 + Math.random() * 400;
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.linearRampToValueAtTime(freq + (Math.random() - 0.5) * 250, now + 0.045);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.045);
+            }
+        }
+
+        function playEventSweepSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, now);
+            osc.frequency.exponentialRampToValueAtTime(750, now + 0.45);
+            gain.gain.setValueAtTime(0.09, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(900, now);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+
+        function playNoiseFlashSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const bufferSize = Math.floor(audioCtx.sampleRate * 0.18);
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+            noise.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start(now);
+        }
+
+        function createPaddedWallPattern(wallIndex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            const baseCanvas = document.createElement('canvas');
+            baseCanvas.width = 1024;
+            baseCanvas.height = 1024;
+            const baseCtx = baseCanvas.getContext('2d');
+
+            function renderWall(targetCtx) {
+                // Off-white base background
+                targetCtx.fillStyle = '#eae5db';
+                targetCtx.fillRect(0, 0, 1024, 1024);
+
+                const cols = 4;
+                const rows = 4;
+                const cellW = 1024 / cols;
+                const cellH = 1024 / rows;
+                const pad = 14;
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const x = c * cellW;
+                        const y = r * cellH;
+
+                        // Cushion drop seam shadow
+                        targetCtx.fillStyle = 'rgba(20, 18, 15, 0.15)';
+                        targetCtx.fillRect(x, y, cellW, cellH);
+
+                        // Cushion rounded cushion fill gradient
+                        const grad = targetCtx.createLinearGradient(x + pad, y + pad, x + cellW - pad, y + cellH - pad);
+                        grad.addColorStop(0, '#fbf8f2');
+                        grad.addColorStop(0.35, '#efeae0');
+                        grad.addColorStop(0.75, '#dfd9cc');
+                        grad.addColorStop(1, '#c5beb3');
+
+                        targetCtx.fillStyle = grad;
+                        targetCtx.beginPath();
+                        if (targetCtx.roundRect) {
+                            targetCtx.roundRect(x + pad, y + pad, cellW - pad * 2, cellH - pad * 2, 22);
+                        } else {
+                            targetCtx.rect(x + pad, y + pad, cellW - pad * 2, cellH - pad * 2);
+                        }
+                        targetCtx.fill();
+
+                        // Soft cushion inner stroke highlight
+                        targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+                        targetCtx.lineWidth = 4;
+                        targetCtx.stroke();
+
+                        // Central tufted button indent
+                        const cx = x + cellW / 2;
+                        const cy = y + cellH / 2;
+
+                        const tuftGrad = targetCtx.createRadialGradient(cx, cy, 2, cx, cy, 32);
+                        tuftGrad.addColorStop(0, 'rgba(30, 25, 20, 0.55)');
+                        tuftGrad.addColorStop(0.5, 'rgba(70, 65, 55, 0.2)');
+                        tuftGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                        targetCtx.fillStyle = tuftGrad;
+                        targetCtx.beginPath();
+                        targetCtx.arc(cx, cy, 32, 0, Math.PI * 2);
+                        targetCtx.fill();
+
+                        // Button core
+                        targetCtx.fillStyle = '#b0a89b';
+                        targetCtx.beginPath();
+                        targetCtx.arc(cx, cy, 6, 0, Math.PI * 2);
+                        targetCtx.fill();
+
+                        // Tuft crease lines
+                        targetCtx.strokeStyle = 'rgba(60, 55, 45, 0.12)';
+                        targetCtx.lineWidth = 2;
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(cx - 20, cy - 20); targetCtx.lineTo(x + pad + 12, y + pad + 12);
+                        targetCtx.moveTo(cx + 20, cy - 20); targetCtx.lineTo(x + cellW - pad - 12, y + pad + 12);
+                        targetCtx.moveTo(cx - 20, cy + 20); targetCtx.lineTo(x + pad + 12, y + cellH - pad - 12);
+                        targetCtx.moveTo(cx + 20, cy + 20); targetCtx.lineTo(x + cellW - pad - 12, y + cellH - pad - 12);
+                        targetCtx.stroke();
+                    }
+                }
+
+                // Subdued sector watermark
+                targetCtx.fillStyle = 'rgba(100, 90, 80, 0.2)';
+                targetCtx.font = 'bold 22px Courier New';
+                targetCtx.fillText(`PADDED CELL - SECTOR 0${wallIndex + 1}`, 35, 985);
+            }
+
+            renderWall(ctx);
+            renderWall(baseCtx);
+
+            return { canvas, baseCanvas };
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020302);
+            scene.fog = new THREE.FogExp2(0x020302, 0.04);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+            camera.position.set(0, 1.6, 2.5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            raycaster = new THREE.Raycaster();
+
+            // Room Dimensions: 8x8 units, height 4
+            const roomSize = 8;
+            const roomHeight = 4;
+            const halfR = roomSize / 2;
+
+            // Generate Wall Textures
+            for (let i = 0; i < 4; i++) {
+                const { canvas, baseCanvas } = createPaddedWallPattern(i);
+                wallCanvases.push(canvas);
+                baseWallCanvases.push(baseCanvas);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                wallTextures.push(texture);
+            }
+
+            // Create Wall Meshes
+            const wallGeometry = new THREE.PlaneGeometry(roomSize, roomHeight);
+
+            // North Wall (Z = -4)
+            const wallN = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ map: wallTextures[0], roughness: 0.8 }));
+            wallN.position.set(0, roomHeight / 2, -halfR);
+            wallN.userData = { type: 'wall', wallIndex: 0, interactable: true };
+            scene.add(wallN);
+            collidableObjects.push(wallN);
+            wallMeshes.push(wallN);
+
+            // South Wall (Z = +4)
+            const wallS = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ map: wallTextures[1], roughness: 0.8 }));
+            wallS.position.set(0, roomHeight / 2, halfR);
+            wallS.rotation.y = Math.PI;
+            wallS.userData = { type: 'wall', wallIndex: 1, interactable: true };
+            scene.add(wallS);
+            collidableObjects.push(wallS);
+            wallMeshes.push(wallS);
+
+            // East Wall (X = +4)
+            const wallE = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ map: wallTextures[2], roughness: 0.8 }));
+            wallE.position.set(halfR, roomHeight / 2, 0);
+            wallE.rotation.y = -Math.PI / 2;
+            wallE.userData = { type: 'wall', wallIndex: 2, interactable: true };
+            scene.add(wallE);
+            collidableObjects.push(wallE);
+            wallMeshes.push(wallE);
+
+            // West Wall (X = -4)
+            const wallW = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ map: wallTextures[3], roughness: 0.8 }));
+            wallW.position.set(-halfR, roomHeight / 2, 0);
+            wallW.rotation.y = Math.PI / 2;
+            wallW.userData = { type: 'wall', wallIndex: 3, interactable: true };
+            scene.add(wallW);
+            collidableObjects.push(wallW);
+            wallMeshes.push(wallW);
+
+            // Floor (Padded Soft Rubber/Vinyl Tiles)
+            const floorGeo = new THREE.PlaneGeometry(roomSize, roomSize);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a3835, roughness: 0.6, metalness: 0.1 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Ceiling (Off-White Padded Mesh)
+            const ceiling = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xd8d3c8, roughness: 0.9 }));
+            ceiling.position.y = roomHeight;
+            ceiling.rotation.x = Math.PI / 2;
+            scene.add(ceiling);
+
+            // Overhead Fluorescent Light Fixture
+            const fixtureGeo = new THREE.BoxGeometry(1.8, 0.08, 1.8);
+            const fixtureMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+            fixture.position.set(0, roomHeight - 0.04, 0);
+            scene.add(fixture);
+
+            ceilingLight = new THREE.PointLight(0xfff8ee, 1.25, 14);
+            ceilingLight.position.set(0, roomHeight - 0.2, 0);
+            ceilingLight.castShadow = true;
+            ceilingLight.shadow.mapSize.width = 1024;
+            ceilingLight.shadow.mapSize.height = 1024;
+            scene.add(ceilingLight);
+
+            // Ambient Light
+            const ambientLight = new THREE.AmbientLight(0xd1c9be, 0.35);
+            scene.add(ambientLight);
+
+            // Minimalist Bed Prop against West Wall
+            bedGroup = new THREE.Group();
+            bedGroup.position.set(-2.8, 0, -1.2);
+
+            // Metal Bed Frame
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x222528, metalness: 0.8, roughness: 0.3 });
+            const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.5);
+            
+            const legPositions = [
+                [-0.7, 0.25, -1.1], [0.7, 0.25, -1.1],
+                [-0.7, 0.25, 1.1], [0.7, 0.25, 1.1]
+            ];
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, frameMat);
+                leg.position.set(...pos);
+                bedGroup.add(leg);
+            });
+
+            const baseBoard = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 2.3), frameMat);
+            baseBoard.position.y = 0.5;
+            bedGroup.add(baseBoard);
+
+            // Mattress
+            const mattressMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.9 });
+            const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 2.2), mattressMat);
+            mattress.position.y = 0.7;
+            mattress.castShadow = true;
+            bedGroup.add(mattress);
+
+            // Pillow
+            const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.45), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
+            pillow.position.set(0, 0.9, -0.75);
+            bedGroup.add(pillow);
+
+            // Blanket
+            const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.12, 1.4), new THREE.MeshStandardMaterial({ color: 0xc4bcb0, roughness: 0.9 }));
+            blanket.position.set(0, 0.78, 0.35);
+            bedGroup.add(blanket);
+
+            scene.add(bedGroup);
+
+            // Stool / Side Table for Props
+            const stoolGroup = new THREE.Group();
+            stoolGroup.position.set(3.0, 0, -1.8);
+
+            const stoolTop = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0x5a4d41, roughness: 0.7 }));
+            stoolTop.position.y = 0.65;
+            stoolGroup.add(stoolTop);
+
+            const stoolLegGeo = new THREE.CylinderGeometry(0.03, 0.02, 0.65);
+            for (let a = 0; a < 4; a++) {
+                const angle = (a / 4) * Math.PI * 2;
+                const leg = new THREE.Mesh(stoolLegGeo, frameMat);
+                leg.position.set(Math.cos(angle) * 0.3, 0.325, Math.sin(angle) * 0.3);
+                stoolGroup.add(leg);
+            }
+            scene.add(stoolGroup);
+
+            // Crayon Box Prop
+            crayonBoxProp = new THREE.Group();
+            crayonBoxProp.position.set(2.9, 0.7, -1.9);
+
+            const boxBody = new THREE.Mesh(
+                new THREE.BoxGeometry(0.25, 0.32, 0.14),
+                new THREE.MeshStandardMaterial({ color: 0xe6b800, roughness: 0.5 }) // Retro yellow crayon box
+            );
+            boxBody.position.y = 0.16;
+            boxBody.castShadow = true;
+            crayonBoxProp.add(boxBody);
+
+            // Mini Crayon Tips Sticking Out
+            const crayonColors = [0xff2222, 0x2266ff, 0x22cc44, 0xffcc00, 0x111111];
+            const crayonGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.1, 8);
+            crayonColors.forEach((col, idx) => {
+                const cTip = new THREE.Mesh(crayonGeo, new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
+                cTip.position.set(-0.08 + idx * 0.04, 0.34, 0);
+                crayonBoxProp.add(cTip);
+            });
+
+            crayonBoxProp.userData = { type: 'crayon_box', interactable: true, prompt: "Press E or Click to equip Crayon Box" };
+            scene.add(crayonBoxProp);
+
+            // Eraser Prop
+            eraserProp = new THREE.Mesh(
+                new THREE.BoxGeometry(0.24, 0.08, 0.14),
+                new THREE.MeshStandardMaterial({ color: 0xf2b6c1, roughness: 0.7 }) // Pink rubber eraser
+            );
+            eraserProp.position.set(3.1, 0.73, -1.6);
+            eraserProp.rotation.y = 0.3;
+            eraserProp.castShadow = true;
+            eraserProp.userData = { type: 'eraser', interactable: true, prompt: "Press E or Click to equip Eraser" };
+            scene.add(eraserProp);
+
+            // Procedural Penguin NPC (Spawned during Event)
+            penguinNPC = createPenguinMesh();
+            penguinNPC.position.set(1.5, -2.0, 0.5); // Initially hidden beneath floor
+            penguinNPC.userData = { type: 'npc', interactable: true, prompt: "Surreal Entity - Penguin" };
+            scene.add(penguinNPC);
+        }
+
+        function createPenguinMesh() {
+            const pGroup = new THREE.Group();
+
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.8 });
+            const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff7700, roughness: 0.5 });
+
+            // Main Body
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), blackMat);
+            body.scale.set(1, 1.45, 0.9);
+            body.position.y = 0.5;
+            pGroup.add(body);
+
+            // Belly
+            const belly = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), whiteMat);
+            belly.scale.set(0.85, 1.2, 0.5);
+            belly.position.set(0, 0.48, 0.16);
+            pGroup.add(belly);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), blackMat);
+            head.position.set(0, 1.05, 0.05);
+            pGroup.add(head);
+
+            // Beak
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 8), orangeMat);
+            beak.rotation.x = Math.PI / 2;
+            beak.position.set(0, 1.02, 0.28);
+            pGroup.add(beak);
+
+            // Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.035, 8, 8);
+            const eyeL = new THREE.Mesh(eyeGeo, whiteMat);
+            eyeL.position.set(-0.09, 1.1, 0.21);
+            const eyeR = new THREE.Mesh(eyeGeo, whiteMat);
+            eyeR.position.set(0.09, 1.1, 0.21);
+            pGroup.add(eyeL);
+            pGroup.add(eyeR);
+
+            // Flippers
+            const flipperGeo = new THREE.BoxGeometry(0.08, 0.4, 0.18);
+            const flipperL = new THREE.Mesh(flipperGeo, blackMat);
+            flipperL.position.set(-0.35, 0.5, 0);
+            flipperL.rotation.z = 0.25;
+            const flipperR = new THREE.Mesh(flipperGeo, blackMat);
+            flipperR.position.set(0.35, 0.5, 0);
+            flipperR.rotation.z = -0.25;
+            pGroup.add(flipperL);
+            pGroup.add(flipperR);
+
+            // Feet
+            const footGeo = new THREE.BoxGeometry(0.12, 0.05, 0.22);
+            const footL = new THREE.Mesh(footGeo, orangeMat);
+            footL.position.set(-0.14, 0.025, 0.1);
+            const footR = new THREE.Mesh(footGeo, orangeMat);
+            footR.position.set(0.14, 0.025, 0.1);
+            pGroup.add(footL);
+            pGroup.add(footR);
+
+            return pGroup;
+        }
+
+        function setupEventListeners() {
+            const startOverlay = document.getElementById('start-overlay');
+
+            startOverlay.addEventListener('click', () => {
+                initAudio();
+                document.body.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    isPointerLocked = true;
+                    startOverlay.style.display = 'none';
+                } else {
+                    isPointerLocked = false;
+                    startOverlay.style.display = 'flex';
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isPointerLocked) return;
+
+                const sensitivity = 0.0022;
+                cameraYaw -= e.movementX * sensitivity;
+                cameraPitch -= e.movementY * sensitivity;
+
+                // Clamp Pitch
+                cameraPitch = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, cameraPitch));
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (!isPointerLocked) return;
+
+                switch (e.code) {
+                    case 'KeyW': case 'ArrowUp': moveForward = true; break;
+                    case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+                    case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+                    case 'KeyD': case 'ArrowRight': moveRight = true; break;
+                    case 'KeyE':
+                        triggerTargetInteraction();
+                        isInteracting = true;
+                        break;
+                    case 'Digit1': selectColor('#ff2222', 0); break;
+                    case 'Digit2': selectColor('#2266ff', 1); break;
+                    case 'Digit3': selectColor('#22cc44', 2); break;
+                    case 'Digit4': selectColor('#ffcc00', 3); break;
+                    case 'Digit5': selectColor('#111111', 4); break;
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                switch (e.code) {
+                    case 'KeyW': case 'ArrowUp': moveForward = false; break;
+                    case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+                    case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+                    case 'KeyD': case 'ArrowRight': moveRight = false; break;
+                    case 'KeyE': isInteracting = false; break;
+                }
+            });
+
+            document.addEventListener('mousedown', (e) => {
+                if (!isPointerLocked) return;
+                if (e.button === 0) {
+                    triggerTargetInteraction();
+                    isInteracting = true;
+                }
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (e.button === 0) isInteracting = false;
+            });
+
+            // Color Palette Clicks
+            const swatches = document.querySelectorAll('.color-swatch');
+            swatches.forEach((swatch, idx) => {
+                swatch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const hex = swatch.getAttribute('data-color');
+                    selectColor(hex, idx);
+                });
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function selectColor(hex, idx) {
+            activeColor = hex;
+            playColorSound();
+
+            const swatches = document.querySelectorAll('.color-swatch');
+            swatches.forEach((s, i) => {
+                s.classList.toggle('active', i === idx);
+            });
+
+            const colorPreview = document.getElementById('color-preview');
+            colorPreview.style.backgroundColor = activeColor;
+        }
+
+        function triggerTargetInteraction() {
+            if (!currentTargetObject) return;
+
+            const type = currentTargetObject.userData.type;
+
+            if (type === 'crayon_box') {
+                currentTool = 'crayon';
+                playPickupSound();
+                updateHUDTool();
+            } else if (type === 'eraser') {
+                currentTool = 'eraser';
+                playPickupSound();
+                updateHUDTool();
+            }
+        }
+
+        function updateHUDTool() {
+            const equippedName = document.getElementById('equipped-name');
+            const colorPreview = document.getElementById('color-preview');
+            const paletteBar = document.getElementById('palette-bar');
+
+            if (currentTool === 'crayon') {
+                equippedName.innerText = 'CRAYON';
+                colorPreview.style.display = 'inline-block';
+                colorPreview.style.backgroundColor = activeColor;
+                paletteBar.style.display = 'flex';
+            } else if (currentTool === 'eraser') {
+                equippedName.innerText = 'ERASER';
+                colorPreview.style.display = 'none';
+                paletteBar.style.display = 'none';
+            } else {
+                equippedName.innerText = 'NONE';
+                colorPreview.style.display = 'none';
+                paletteBar.style.display = 'none';
+            }
+        }
+
+        function handleWallDrawing(hit) {
+            if (!hit || !hit.uv || hit.object.userData.type !== 'wall') return;
+
+            const wallIdx = hit.object.userData.wallIndex;
+            const canvas = wallCanvases[wallIdx];
+            const ctx = canvas.getContext('2d');
+            const baseCanvas = baseWallCanvases[wallIdx];
+            const texture = wallTextures[wallIdx];
+
+            const uv = hit.uv;
+            const x = uv.x * canvas.width;
+            const y = (1 - uv.y) * canvas.height; // Invert Canvas Y relative to UV Y
+
+            if (currentTool === 'crayon' && isInteracting) {
+                playCrayonSound();
+                ctx.save();
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                if (lastDrawPos[wallIdx]) {
+                    const prev = lastDrawPos[wallIdx];
+
+                    // Main stroke
+                    ctx.strokeStyle = activeColor;
+                    ctx.lineWidth = 14;
+                    ctx.globalAlpha = 0.85;
+                    ctx.beginPath();
+                    ctx.moveTo(prev.x, prev.y);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+
+                    // Wax texture granular sub-lines
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.35;
+                    for (let i = 0; i < 3; i++) {
+                        const ox = (Math.random() - 0.5) * 8;
+                        const oy = (Math.random() - 0.5) * 8;
+                        ctx.beginPath();
+                        ctx.moveTo(prev.x + ox, prev.y + oy);
+                        ctx.lineTo(x + ox, y + oy);
+                        ctx.stroke();
+                    }
+                } else {
+                    ctx.fillStyle = activeColor;
+                    ctx.globalAlpha = 0.85;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                texture.needsUpdate = true;
+                lastDrawPos[wallIdx] = { x, y };
+            } else if (currentTool === 'eraser' && isInteracting) {
+                playEraserSound();
+                const radius = 38;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Restore pristine padded panel texture from buffer
+                ctx.drawImage(
+                    baseCanvas,
+                    x - radius - 5, y - radius - 5, radius * 2 + 10, radius * 2 + 10,
+                    x - radius - 5, y - radius - 5, radius * 2 + 10, radius * 2 + 10
+                );
+                ctx.restore();
+
+                // Faint rubber scrub bloom
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                texture.needsUpdate = true;
+                lastDrawPos[wallIdx] = { x, y };
+            } else {
+                lastDrawPos[wallIdx] = null;
+            }
+        }
+
+        function triggerDistortionFlash() {
+            const overlay = document.getElementById('distortion-overlay');
+            overlay.classList.add('flash-active');
+            playNoiseFlashSound();
+
+            const stabilityVal = document.getElementById('stability-val');
+            const glitchedValues = ['34%', 'ERR_STAB', '12%', '89%', '04%', 'NaN%', 'CRIT_STAB'];
+            stabilityVal.innerText = glitchedValues[Math.floor(Math.random() * glitchedValues.length)];
+            stabilityVal.classList.add('hud-glitch');
+
+            setTimeout(() => {
+                overlay.classList.remove('flash-active');
+                setTimeout(() => {
+                    if (!isSurrealEventActive) {
+                        stabilityVal.innerText = '100%';
+                        stabilityVal.classList.remove('hud-glitch');
+                    }
+                }, 1200);
+            }, 220);
+        }
+
+        function triggerSurrealEvent() {
+            if (isSurrealEventActive) return;
+            isSurrealEventActive = true;
+            playEventSweepSound();
+
+            const stabilityVal = document.getElementById('stability-val');
+            stabilityVal.innerText = (12 + Math.floor(Math.random() * 32)) + '%';
+            stabilityVal.classList.add('hud-glitch');
+
+            const events = ['penguin', 'cameraRoll', 'floatingProps'];
+            const chosen = events[Math.floor(Math.random() * events.length)];
+
+            if (chosen === 'penguin') {
+                startPenguinEvent();
+            } else if (chosen === 'cameraRoll') {
+                startCameraRollEvent();
+            } else if (chosen === 'floatingProps') {
+                startFloatingPropsEvent();
+            }
+        }
+
+        function startPenguinEvent() {
+            const dialogues = [
+                "Did you know the economic inflation rate in Bangladesh is currently fluctuating?",
+                "The floor is made of compressed memory fragments.",
+                "Have you seen my slide rule? I left it in 1994.",
+                "Every padded panel in this cell resonates in key of F sharp.",
+                "Please do not tap on the reality boundaries."
+            ];
+            const text = dialogues[Math.floor(Math.random() * dialogues.length)];
+
+            penguinNPC.position.set(0.8, -1.2, -0.2);
+
+            activeEventData = {
+                type: 'penguin',
+                time: 0,
+                duration: 8.5,
+                text: text
+            };
+
+            const bubble = document.getElementById('npc-speech-bubble');
+            bubble.innerText = text;
+            bubble.style.display = 'block';
+        }
+
+        function startCameraRollEvent() {
+            targetCameraRoll = 0.35; // Tilt Z angle ~20 degrees
+
+            activeEventData = {
+                type: 'cameraRoll',
+                time: 0,
+                duration: 4.5
+            };
+        }
+
+        function startFloatingPropsEvent() {
+            activeEventData = {
+                type: 'floatingProps',
+                time: 0,
+                duration: 6.5,
+                initialBedY: bedGroup.position.y
+            };
+        }
+
+        function updateSurrealEngine(delta) {
+            surrealTimer += delta;
+            flashTimer += delta;
+
+            // Random Distortion Flashes
+            if (flashTimer >= nextFlashDelay) {
+                flashTimer = 0;
+                nextFlashDelay = 15 + Math.random() * 10;
+                triggerDistortionFlash();
+            }
+
+            // Surreal Event Timer
+            if (surrealTimer >= nextEventDelay) {
+                surrealTimer = 0;
+                nextEventDelay = 20 + Math.random() * 10;
+                triggerSurrealEvent();
+            }
+
+            // Progress Active Event
+            if (activeEventData) {
+                activeEventData.time += delta;
+                const t = activeEventData.time;
+                const dur = activeEventData.duration;
+
+                if (activeEventData.type === 'penguin') {
+                    if (t < 1.0) {
+                        penguinNPC.position.y = -1.2 + (t / 1.0) * 1.2; // Emerge from floor
+                    } else if (t < dur - 1.0) {
+                        penguinNPC.position.y = 0;
+                        penguinNPC.rotation.y = Math.sin(t * 4) * 0.2; // Waddling bob
+                    } else if (t < dur) {
+                        const progress = (t - (dur - 1.0)) / 1.0;
+                        penguinNPC.position.y = -progress * 1.2; // Sink into floor
+                    } else {
+                        endSurrealEvent();
+                    }
+
+                    // Project 3D Speech Bubble to 2D
+                    if (penguinNPC.position.y > -1.0) {
+                        const pPos = new THREE.Vector3(0.8, 1.3, -0.2);
+                        pPos.project(camera);
+
+                        const x = (pPos.x * .5 + .5) * window.innerWidth;
+                        const y = (-(pPos.y * .5) + .5) * window.innerHeight;
+
+                        const bubble = document.getElementById('npc-speech-bubble');
+                        bubble.style.left = `${x}px`;
+                        bubble.style.top = `${y}px`;
+                    }
+                } else if (activeEventData.type === 'cameraRoll') {
+                    if (t < 0.6) {
+                        baseCameraRoll = THREE.MathUtils.lerp(0, targetCameraRoll, t / 0.6);
+                    } else if (t < dur - 0.8) {
+                        baseCameraRoll = targetCameraRoll;
+                    } else if (t < dur) {
+                        const progress = (t - (dur - 0.8)) / 0.8;
+                        baseCameraRoll = THREE.MathUtils.lerp(targetCameraRoll, 0, progress);
+                    } else {
+                        baseCameraRoll = 0;
+                        endSurrealEvent();
+                    }
+                } else if (activeEventData.type === 'floatingProps') {
+                    if (t < dur) {
+                        const floatOffset = Math.sin((t / dur) * Math.PI) * 1.25;
+                        bedGroup.position.y = activeEventData.initialBedY + floatOffset;
+                        bedGroup.rotation.z = Math.sin(t * 2) * 0.08;
+                    } else {
+                        bedGroup.position.y = activeEventData.initialBedY;
+                        bedGroup.rotation.z = 0;
+                        endSurrealEvent();
+                    }
+                }
+            }
+        }
+
+        function endSurrealEvent() {
+            isSurrealEventActive = false;
+            activeEventData = null;
+
+            document.getElementById('npc-speech-bubble').style.display = 'none';
+
+            const stabilityVal = document.getElementById('stability-val');
+            stabilityVal.innerText = '100%';
+            stabilityVal.classList.remove('hud-glitch');
+        }
+
+        function updatePlayerMovement(delta) {
+            if (!isPointerLocked) return;
+
+            // Apply Camera Rotations with Roll
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.x = cameraPitch;
+            euler.y = cameraYaw;
+            euler.z = baseCameraRoll;
+            camera.quaternion.setFromEuler(euler);
+
+            // Movement Velocity Decay
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            const speed = 28.0;
+            if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+            if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+
+            // Forward & Strafe Vectors
+            const forwardVec = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
+            const rightVec = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
+
+            const nextPos = camera.position.clone();
+            nextPos.addScaledVector(forwardVec, -velocity.z * delta);
+            nextPos.addScaledVector(rightVec, velocity.x * delta);
+
+            // Room Bounds Collision (-3.5 to +3.5)
+            const bound = 3.45;
+            nextPos.x = Math.max(-bound, Math.min(bound, nextPos.x));
+            nextPos.z = Math.max(-bound, Math.min(bound, nextPos.z));
+
+            // Bed Box Collision
+            if (nextPos.x < -1.8 && nextPos.z < 0.1 && nextPos.z > -2.5) {
+                // Keep player outside bed box
+                if (camera.position.x >= -1.8) nextPos.x = -1.8;
+                if (camera.position.z >= 0.1) nextPos.z = 0.1;
+                if (camera.position.z <= -2.5) nextPos.z = -2.5;
+            }
+
+            camera.position.copy(nextPos);
+        }
+
+        function updateRaycasting() {
+            raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            const promptBar = document.getElementById('prompt-bar');
+            let hitTarget = null;
+
+            if (intersects.length > 0 && intersects[0].distance < 3.2) {
+                let obj = intersects[0].object;
+                while (obj && !obj.userData.interactable && obj.parent) {
+                    obj = obj.parent;
+                }
+
+                if (obj && obj.userData.interactable) {
+                    hitTarget = intersects[0];
+                    currentTargetObject = obj;
+
+                    if (obj.userData.type === 'wall') {
+                        if (currentTool === 'crayon') {
+                            promptBar.innerText = "Hold Left Click or 'E' to Draw on Wall";
+                        } else if (currentTool === 'eraser') {
+                            promptBar.innerText = "Hold Left Click or 'E' to Erase Wall";
+                        } else {
+                            promptBar.innerText = "Targeting Padded Wall - Equip Crayon or Eraser";
+                        }
+                    } else if (obj.userData.prompt) {
+                        promptBar.innerText = obj.userData.prompt;
+                    }
+                }
+            }
+
+            if (!hitTarget) {
+                currentTargetObject = null;
+                if (!isPointerLocked) {
+                    promptBar.innerText = "Click screen to lock mouse cursor";
+                } else if (currentTool === 'crayon') {
+                    promptBar.innerText = "Crayon Equipped - Target Wall to Draw";
+                } else if (currentTool === 'eraser') {
+                    promptBar.innerText = "Eraser Equipped - Target Wall to Clean";
+                } else {
+                    promptBar.innerText = "Explore cell. Target Crayon Box or Eraser to equip";
+                }
+            }
+
+            // Continuous Wall Interaction
+            if (hitTarget && isInteracting && currentTargetObject.userData.type === 'wall') {
+                handleWallDrawing(hitTarget);
+            } else {
+                lastDrawPos = [null, null, null, null];
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
+            prevTime = time;
+
+            // Overhead Light Micro Flicker
+            if (ceilingLight) {
+                ceilingLight.intensity = 1.2 + Math.sin(time * 0.02) * 0.04 + (Math.random() < 0.02 ? -0.25 : 0);
+            }
+
+            updatePlayerMovement(delta);
+            updateRaycasting();
+            updateSurrealEngine(delta);
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initScene();
+            setupEventListeners();
+            animate();
+        };
+    </script>
+</body>
+</html>
