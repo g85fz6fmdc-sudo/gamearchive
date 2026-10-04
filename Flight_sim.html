@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Flight Simulator - WebGL Flight Engine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050b14;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #ffffff;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Avionics HUD Overlay */
+        #hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .hud-panel {
+            background: rgba(10, 20, 32, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: #f0f9ff;
+        }
+
+        .gauge-title {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #38bdf8;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .gauge-value {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 28px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .gauge-unit {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-left: 4px;
+            font-weight: 400;
+        }
+
+        /* Flight Horizon Widget */
+        .horizon-card {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 220px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #horizon-indicator {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #0284c7 50%, #78350f 50%);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
+            margin: 8px 0;
+        }
+
+        #horizon-pitch-line {
+            position: absolute;
+            top: 50%;
+            left: 15%;
+            width: 70%;
+            height: 2px;
+            background: #facc15;
+            box-shadow: 0 0 6px #facc15;
+            transform-origin: center;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .badge-ground {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .badge-airborne {
+            background: rgba(14, 165, 233, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(14, 165, 233, 0.4);
+        }
+
+        .badge-stall {
+            background: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.6);
+            animation: pulse-red 0.6s infinite alternate;
+        }
+
+        @keyframes pulse-red {
+            0% { opacity: 0.6; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1.04); }
+        }
+
+        /* Throttle Bar */
+        .throttle-container {
+            width: 140px;
+            height: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 8px;
+        }
+
+        #throttle-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #f59e0b, #ef4444);
+            transition: width 0.1s linear;
+        }
+
+        /* Control Key Helper Overlay */
+        .controls-card {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 310px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #f0f9ff;
+        }
+
+        /* Score & Ring Counter Card */
+        .ring-card {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        /* Start Modal & Crash Banner */
+        #start-overlay, #crash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 11, 20, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            text-align: center;
+        }
+
+        #crash-overlay {
+            display: none;
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        .start-btn {
+            margin-top: 24px;
+            padding: 16px 40px;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: #030712;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.06);
+            box-shadow: 0 0 35px rgba(56, 189, 248, 0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- START OVERLAY -->
+    <div id="start-overlay">
+        <h1 style="font-size: 42px; font-weight: 900; letter-spacing: 2px; color: #38bdf8; margin-bottom: 10px;">3D FLIGHT SIMULATOR</h1>
+        <p style="color: #94a3b8; max-width: 480px; line-height: 1.6; font-size: 15px;">
+            Experience GTA V style aircraft physics & procedural city visuals. Enable Web Audio to initialize flight engine sounds.
+        </p>
+        <button class="start-btn" id="start-btn">CLICK TO START / ENABLE AUDIO</button>
+    </div>
+
+    <!-- CRASH BANNER -->
+    <div id="crash-overlay">
+        <h1 style="font-size: 48px; font-weight: 900; color: #f87171; text-shadow: 0 0 20px #ef4444;">AIRCRAFT DESTROYED</h1>
+        <p style="color: #fca5a5; margin-top: 10px; font-weight: 600;">RESPAWNING AT RUNWAY THRESHOLD...</p>
+    </div>
+
+    <!-- GLASS HUD OVERLAY -->
+    <div id="hud-overlay">
+        <div class="hud-top-bar">
+            <!-- Left Panel: Speed & Altitude -->
+            <div class="hud-panel">
+                <div style="display: flex; gap: 24px;">
+                    <div>
+                        <div class="gauge-title">AIRSPEED</div>
+                        <span class="gauge-value" id="val-speed">0</span><span class="gauge-unit">KTS</span>
+                    </div>
+                    <div style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 24px;">
+                        <div class="gauge-title">ALTITUDE</div>
+                        <span class="gauge-value" id="val-altitude">0</span><span class="gauge-unit">FT</span>
+                    </div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <div class="gauge-title" style="display: flex; justify-content: space-between;">
+                        <span>THROTTLE</span>
+                        <span id="val-throttle-txt">0%</span>
+                    </div>
+                    <div class="throttle-container">
+                        <div id="throttle-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Artificial Horizon -->
+            <div class="hud-panel horizon-card">
+                <div class="gauge-title">ATTITUDE HORIZON</div>
+                <div id="horizon-indicator">
+                    <div id="horizon-pitch-line"></div>
+                </div>
+                <div id="status-badge" class="status-badge badge-ground">GROUND TAXI</div>
+            </div>
+
+            <!-- Right Panel: Rings Score -->
+            <div class="hud-panel ring-card">
+                <div class="gauge-title">TARGET RINGS</div>
+                <div class="gauge-value" style="color: #facc15;" id="val-rings">0 / 15</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">NAVIGATE THROUGH RINGS</div>
+            </div>
+        </div>
+
+        <!-- Bottom Right Control Helper Card -->
+        <div class="hud-panel controls-card">
+            <div class="gauge-title" style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+                GTA V FLIGHT MAPPING
+            </div>
+            <div class="control-row">
+                <span style="color:#94a3b8;">Throttle Accelerate / Brake</span>
+                <div><span class="key-badge">W</span> <span class="key-badge">S</span></div>
+            </div>
+            <div class="control-row">
+                <span style="color:#94a3b8;">Ground Taxi Steer (Ground Only)</span>
+                <div><span class="key-badge">A</span> <span class="key-badge">D</span></div>
+            </div>
+            <div class="control-row">
+                <span style="color:#94a3b8;">Pitch Nose UP (Ground Takeoff / Air)</span>
+                <div><span class="key-badge">I</span></div>
+            </div>
+            <div class="control-row">
+                <span style="color:#94a3b8;">Pitch Nose DOWN (Airborne Only)</span>
+                <div><span class="key-badge">K</span></div>
+            </div>
+            <div class="control-row">
+                <span style="color:#94a3b8;">Roll / Bank Left / Right (Airborne)</span>
+                <div><span class="key-badge">J</span> / <span class="key-badge">L</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants & Configuration
+        const MAX_THROTTLE = 1.0;
+        const TAKEOFF_SPEED = 35.0; // Minimum airspeed knots needed for takeoff rotation
+        const MAX_AIRSPEED = 140.0; // Max horizontal airspeed
+        const STALL_SPEED = 28.0;   // Airspeed below which lift fails
+        const GRAVITY = 9.81;
+
+        // Key Input Tracker
+        const keys = {
+            w: false, s: false, a: false, d: false,
+            i: false, k: false, j: false, l: false
+        };
+
+        // Aircraft Flight Physics State
+        let isGrounded = true;
+        let throttle = 0.0;
+        let airspeed = 0.0;
+        let climbRate = 0.0;
+        let pitch = 0.0; // Radians
+        let roll = 0.0;  // Radians
+        let yaw = 0.0;   // Radians
+        let steerAngle = 0.0; // Front nose wheel steering angle
+        let ringsCleared = 0;
+        let isDead = false;
+
+        // Three.js Core Objects
+        let scene, camera, renderer;
+        let airplaneGroup, propellerMesh;
+        let elevatorLeft, elevatorRight, aileronLeft, aileronRight, rudderMesh, frontWheelPivot;
+        let buildingBoxes = [];
+        let ringObjects = [];
+        let clock = new THREE.Clock();
+
+        // Web Audio Context & Nodes
+        let audioCtx = null;
+        let engineOsc = null;
+        let engineGain = null;
+        let engineFilter = null;
+        let windGain = null;
+        let windNoiseNode = null;
+
+        // Procedural Window Facade Texture Generator
+        function generateBuildingTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, 256, 512);
+
+            // Windows grid
+            for (let y = 12; y < 500; y += 22) {
+                for (let x = 12; x < 240; x += 20) {
+                    if (Math.random() > 0.45) {
+                        ctx.fillStyle = Math.random() > 0.2 ? '#fef08a' : '#38bdf8';
+                    } else {
+                        ctx.fillStyle = '#1e293b';
+                    }
+                    ctx.fillRect(x, y, 12, 14);
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        // Procedural Runway Tarmac Texture Generator
+        function generateRunwayTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 2048;
+            const ctx = canvas.getContext('2d');
+
+            // Asphalt background
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(0, 0, 512, 2048);
+
+            // Side white boundary lines
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(24, 0, 12, 2048);
+            ctx.fillRect(476, 0, 12, 2048);
+
+            // Center yellow dash line
+            ctx.fillStyle = '#eab308';
+            for (let y = 0; y < 2048; y += 90) {
+                ctx.fillRect(250, y, 12, 45);
+            }
+
+            // Runway threshold stripes
+            ctx.fillStyle = '#ffffff';
+            for (let x = 60; x < 450; x += 32) {
+                ctx.fillRect(x, 60, 18, 140);
+                ctx.fillRect(x, 1848, 18, 140);
+            }
+
+            // Big runway numbers "09" & "27"
+            ctx.font = 'bold 100px sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText('09', 256, 320);
+
+            ctx.save();
+            ctx.translate(256, 1728);
+            ctx.rotate(Math.PI);
+            ctx.fillText('27', 0, 0);
+            ctx.restore();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function initWebAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            // Continuous Engine Sound (Sawtooth Synth + Lowpass Filter)
+            engineOsc = audioCtx.createOscillator();
+            engineGain = audioCtx.createGain();
+            engineFilter = audioCtx.createBiquadFilter();
+
+            engineOsc.type = 'sawtooth';
+            engineOsc.frequency.setValueAtTime(45, audioCtx.currentTime); // Idle pitch Hz
+
+            engineFilter.type = 'lowpass';
+            engineFilter.frequency.setValueAtTime(250, audioCtx.currentTime);
+
+            engineGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+            engineOsc.connect(engineFilter);
+            engineFilter.connect(engineGain);
+            engineGain.connect(audioCtx.destination);
+            engineOsc.start();
+
+            // Procedural Wind Rush Sound (White Noise Source)
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            windNoiseNode = audioCtx.createBufferSource();
+            windNoiseNode.buffer = noiseBuffer;
+            windNoiseNode.loop = true;
+
+            const windFilter = audioCtx.createBiquadFilter();
+            windFilter.type = 'bandpass';
+            windFilter.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+            windGain = audioCtx.createGain();
+            windGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+            windNoiseNode.connect(windFilter);
+            windFilter.connect(windGain);
+            windGain.connect(audioCtx.destination);
+            windNoiseNode.start();
+        }
+
+        function playTouchdownSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playRingChime() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            osc.frequency.setValueAtTime(1318.5, audioCtx.currentTime + 0.08); // E6
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.35);
+        }
+
+        function playCrashSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.6);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        // Build Low-Poly Propeller Aircraft Mesh
+        function createAircraftMesh() {
+            airplaneGroup = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.4 });
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.4, metalness: 0.2 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, roughness: 0.1 });
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 });
+
+            // Main Fuselage Body
+            const fuselageGeo = new THREE.CylinderGeometry(0.7, 0.35, 6.5, 12);
+            fuselageGeo.rotateX(Math.PI / 2);
+            const fuselage = new THREE.Mesh(fuselageGeo, bodyMat);
+            airplaneGroup.add(fuselage);
+
+            // Cockpit Glass Canopy
+            const canopyGeo = new THREE.SphereGeometry(0.65, 12, 12);
+            canopyGeo.scale(0.8, 0.9, 2.2);
+            const canopy = new THREE.Mesh(canopyGeo, glassMat);
+            canopy.position.set(0, 0.55, -0.2);
+            airplaneGroup.add(canopy);
+
+            // Main Wing
+            const wingGeo = new THREE.BoxGeometry(9.6, 0.12, 1.6);
+            const mainWing = new THREE.Mesh(wingGeo, wingMat);
+            mainWing.position.set(0, 0.1, -0.2);
+            airplaneGroup.add(mainWing);
+
+            // Animated Ailerons
+            const aileronGeo = new THREE.BoxGeometry(2.2, 0.08, 0.35);
+            aileronLeft = new THREE.Mesh(aileronGeo, bodyMat);
+            aileronLeft.position.set(-3.2, 0.1, 0.65);
+            airplaneGroup.add(aileronLeft);
+
+            aileronRight = new THREE.Mesh(aileronGeo, bodyMat);
+            aileronRight.position.set(3.2, 0.1, 0.65);
+            airplaneGroup.add(aileronRight);
+
+            // Vertical Stabilizer Fin & Rudder
+            const finGeo = new THREE.BoxGeometry(0.12, 1.5, 1.2);
+            const fin = new THREE.Mesh(finGeo, bodyMat);
+            fin.position.set(0, 1.0, 2.6);
+            airplaneGroup.add(fin);
+
+            const rudderGeo = new THREE.BoxGeometry(0.1, 1.4, 0.4);
+            rudderMesh = new THREE.Mesh(rudderGeo, wingMat);
+            rudderMesh.position.set(0, 1.0, 3.2);
+            airplaneGroup.add(rudderMesh);
+
+            // Horizontal Tail Stabilizer & Elevators
+            const tailWingGeo = new THREE.BoxGeometry(3.2, 0.1, 0.9);
+            const tailWing = new THREE.Mesh(tailWingGeo, wingMat);
+            tailWing.position.set(0, 0.3, 2.7);
+            airplaneGroup.add(tailWing);
+
+            const elevatorGeo = new THREE.BoxGeometry(1.4, 0.08, 0.3);
+            elevatorLeft = new THREE.Mesh(elevatorGeo, bodyMat);
+            elevatorLeft.position.set(-0.8, 0.3, 3.1);
+            airplaneGroup.add(elevatorLeft);
+
+            elevatorRight = new THREE.Mesh(elevatorGeo, bodyMat);
+            elevatorRight.position.set(0.8, 0.3, 3.1);
+            airplaneGroup.add(elevatorRight);
+
+            // Propeller Assembly
+            propellerMesh = new THREE.Group();
+            const hubGeo = new THREE.ConeGeometry(0.4, 0.7, 10);
+            hubGeo.rotateX(-Math.PI / 2);
+            const hub = new THREE.Mesh(hubGeo, chromeMat);
+            propellerMesh.add(hub);
+
+            const bladeGeo = new THREE.BoxGeometry(2.4, 0.18, 0.05);
+            const blade1 = new THREE.Mesh(bladeGeo, darkMat);
+            propellerMesh.add(blade1);
+
+            const blade2 = new THREE.Mesh(bladeGeo, darkMat);
+            blade2.rotation.z = Math.PI / 2;
+            propellerMesh.add(blade2);
+
+            propellerMesh.position.set(0, 0, -3.3);
+            airplaneGroup.add(propellerMesh);
+
+            // Landing Wheels Assembly
+            const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12);
+            wheelGeo.rotateZ(Math.PI / 2);
+
+            // Left & Right Main Gear
+            const mainLeftWheel = new THREE.Mesh(wheelGeo, darkMat);
+            mainLeftWheel.position.set(-1.4, -0.9, -0.2);
+            airplaneGroup.add(mainLeftWheel);
+
+            const mainRightWheel = new THREE.Mesh(wheelGeo, darkMat);
+            mainRightWheel.position.set(1.4, -0.9, -0.2);
+            airplaneGroup.add(mainRightWheel);
+
+            // Front Steering Wheel
+            frontWheelPivot = new THREE.Group();
+            frontWheelPivot.position.set(0, -0.9, -2.2);
+            const frontWheel = new THREE.Mesh(wheelGeo, darkMat);
+            frontWheelPivot.add(frontWheel);
+            airplaneGroup.add(frontWheelPivot);
+
+            airplaneGroup.position.set(0, 1.25, 1100); // Start position at runway end
+            scene.add(airplaneGroup);
+        }
+
+        function buildEnvironment() {
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xe0f2fe, 0.6);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.1);
+            sunLight.position.set(300, 500, 200);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            // Ground Tarmac & Grass Landscape
+            const groundGeo = new THREE.PlaneGeometry(12000, 12000);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = 0;
+            scene.add(ground);
+
+            // Airport Runway Strip
+            const runwayGeo = new THREE.PlaneGeometry(120, 2400);
+            const runwayTex = generateRunwayTexture();
+            runwayTex.wrapS = THREE.ClampToEdgeWrapping;
+            runwayTex.wrapT = THREE.ClampToEdgeWrapping;
+            const runwayMat = new THREE.MeshStandardMaterial({ map: runwayTex, roughness: 0.6 });
+            const runway = new THREE.Mesh(runwayGeo, runwayMat);
+            runway.rotation.x = -Math.PI / 2;
+            runway.position.set(0, 0.1, 0);
+            scene.add(runway);
+
+            // Runway Edge Lights (Green at threshold, Red at end, White sides)
+            const lightGeo = new THREE.SphereGeometry(0.8, 8, 8);
+            for (let z = -1180; z <= 1180; z += 80) {
+                let lightColor = 0xffffff;
+                if (z > 1100) lightColor = 0x22c55e; // Touchdown green
+                if (z < -1100) lightColor = 0xef4444; // End red
+
+                const lightMat = new THREE.MeshBasicMaterial({ color: lightColor });
+
+                const leftLight = new THREE.Mesh(lightGeo, lightMat);
+                leftLight.position.set(-62, 0.8, z);
+                scene.add(leftLight);
+
+                const rightLight = new THREE.Mesh(lightGeo, lightMat);
+                rightLight.position.set(62, 0.8, z);
+                scene.add(rightLight);
+            }
+
+            // Procedural Skyscrapers City Grid
+            const bldgTex = generateBuildingTexture();
+            bldgTex.repeat.set(1, 4);
+
+            const buildingMat = new THREE.MeshStandardMaterial({ map: bldgTex, roughness: 0.4 });
+            const bldgGeo = new THREE.BoxGeometry(1, 1, 1);
+
+            for (let x = -2500; x <= 2500; x += 220) {
+                for (let z = -2500; z <= 2500; z += 220) {
+                    // Keep runway corridor clear
+                    if (Math.abs(x) < 220 && Math.abs(z) < 1400) continue;
+
+                    const height = 60 + Math.random() * 320;
+                    const width = 50 + Math.random() * 50;
+                    const depth = 50 + Math.random() * 50;
+
+                    const building = new THREE.Mesh(bldgGeo, buildingMat);
+                    building.scale.set(width, height, depth);
+                    building.position.set(x + (Math.random() * 40 - 20), height / 2, z + (Math.random() * 40 - 20));
+                    scene.add(building);
+
+                    // Bounding box for crash collisions
+                    const box = new THREE.Box3().setFromObject(building);
+                    buildingBoxes.push(box);
+                }
+            }
+
+            // Volumetric High Altitude Cloud Clusters
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, flatShading: true });
+            for (let i = 0; i < 40; i++) {
+                const cloudGroup = new THREE.Group();
+                const numPuffs = 4 + Math.floor(Math.random() * 5);
+                for (let j = 0; j < numPuffs; j++) {
+                    const puffGeo = new THREE.DodecahedronGeometry(30 + Math.random() * 40, 1);
+                    const puff = new THREE.Mesh(puffGeo, cloudMat);
+                    puff.position.set(j * 25, Math.random() * 10, Math.random() * 20);
+                    cloudGroup.add(puff);
+                }
+                cloudGroup.position.set(
+                    Math.random() * 6000 - 3000,
+                    450 + Math.random() * 450,
+                    Math.random() * 6000 - 3000
+                );
+                scene.add(cloudGroup);
+            }
+
+            // Floating Target Rings
+            const ringGeo = new THREE.TorusGeometry(18, 1.8, 12, 24);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xeab308 });
+
+            for (let i = 0; i < 15; i++) {
+                const ring = new THREE.Mesh(ringGeo, ringMat.clone());
+                const angle = (i / 15) * Math.PI * 2;
+                const radius = 900 + Math.sin(i * 3) * 300;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                const y = 80 + (i % 5) * 60;
+
+                ring.position.set(x, y, z);
+                ring.rotation.y = angle + Math.PI / 2;
+                scene.add(ring);
+                ringObjects.push({ mesh: ring, cleared: false });
+            }
+        }
+
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+                if (keys.hasOwnProperty(k)) keys[k] = true;
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const k = e.key.toLowerCase();
+                if (keys.hasOwnProperty(k)) keys[k] = false;
+            });
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                initWebAudio();
+                document.getElementById('start-overlay').style.display = 'none';
+            });
+        }
+
+        function triggerCrash() {
+            if (isDead) return;
+            isDead = true;
+            playCrashSound();
+            document.getElementById('crash-overlay').style.display = 'flex';
+
+            setTimeout(() => {
+                // Respawn at runway start
+                airplaneGroup.position.set(0, 1.25, 1100);
+                pitch = 0;
+                roll = 0;
+                yaw = 0;
+                airplaneGroup.rotation.set(0, 0, 0);
+                airspeed = 0;
+                throttle = 0;
+                isGrounded = true;
+                isDead = false;
+                document.getElementById('crash-overlay').style.display = 'none';
+            }, 2000);
+        }
+
+        function updateFlightPhysics(dt) {
+            if (isDead) return;
+
+            // 1. THROTTLE & AIRSPEED CONTROL (W / S)
+            if (keys.w) {
+                throttle = Math.min(MAX_THROTTLE, throttle + dt * 0.35);
+            } else if (keys.s) {
+                throttle = Math.max(0.0, throttle - dt * 0.45);
+            }
+
+            const targetAirspeed = throttle * MAX_AIRSPEED;
+            airspeed += (targetAirspeed - airspeed) * dt * 1.8;
+
+            // Pitch influence on speed (Gravity acceleration/drag)
+            if (!isGrounded) {
+                airspeed += Math.sin(-pitch) * 35.0 * dt;
+                airspeed = Math.max(0.0, airspeed);
+            }
+
+            // 2. GROUND TAXI MODE vs AIRBORNE MODE (GTA V STRICT MAPPING)
+            if (isGrounded) {
+                // Ground Taxi Steering (A / D)
+                if (keys.a) {
+                    steerAngle = Math.min(0.45, steerAngle + dt * 2.5);
+                } else if (keys.d) {
+                    steerAngle = Math.max(-0.45, steerAngle - dt * 2.5);
+                } else {
+                    steerAngle *= 0.8; // Centering
+                }
+
+                // Front Wheel Visual Pivot & Rudder
+                frontWheelPivot.rotation.y = steerAngle;
+                rudderMesh.rotation.y = steerAngle;
+
+                // Ground Yaw Steering
+                yaw += steerAngle * (airspeed / 35.0) * dt;
+
+                // Level roll and zero out ailerons while on ground
+                roll = 0;
+                aileronLeft.rotation.z = 0;
+                aileronRight.rotation.z = 0;
+
+                // GROUND PITCH-UP HANDLING ('I' KEY)
+                let elevatorInput = 0;
+                if (keys.i) {
+                    elevatorInput = -0.4; // Animate elevator up
+                    
+                    if (airspeed >= TAKEOFF_SPEED) {
+                        // TAKEOFF EXECUTION: Rotate nose up and build vertical lift
+                        pitch = Math.min(0.35, pitch + 0.95 * dt);
+                        const lift = Math.pow(airspeed / TAKEOFF_SPEED, 2) * GRAVITY;
+                        climbRate = (lift - GRAVITY) + Math.sin(pitch) * airspeed;
+
+                        // Elevate aircraft off runway surface
+                        airplaneGroup.position.y += Math.max(0.1, climbRate) * dt;
+
+                        // Immediately transition to airborne mode upon clearing ground clearance height
+                        if (airplaneGroup.position.y > 1.25) {
+                            isGrounded = false;
+                        }
+                    } else {
+                        // LOW-SPEED GROUND BEHAVIOR: Subtly tilt frame upward / compress gear without lift off
+                        const lowSpeedRatio = Math.max(0.05, airspeed / TAKEOFF_SPEED);
+                        const targetLowPitch = 0.12 * lowSpeedRatio; // Max ~7° frame tilt at sub-takeoff speeds
+                        pitch = Math.min(targetLowPitch, pitch + 0.6 * dt * lowSpeedRatio);
+                        airplaneGroup.position.y = 1.25;
+                    }
+                } else {
+                    // Smoothly relax nose pitch back to horizontal when 'I' key is released
+                    pitch *= Math.pow(0.05, dt * 10);
+                    airplaneGroup.position.y = 1.25;
+                }
+
+                elevatorLeft.rotation.x = elevatorInput;
+                elevatorRight.rotation.x = elevatorInput;
+
+                // Wheel Brakes on S Key
+                if (keys.s) {
+                    airspeed = Math.max(0, airspeed - dt * 25.0);
+                }
+
+            } else {
+                // AIRBORNE MODE (A & D disabled in mid-air)
+                frontWheelPivot.rotation.y = 0;
+
+                // Pitch Control (I = Nose UP, K = Nose DOWN)
+                let elevatorInput = 0;
+                if (keys.i) { pitch += 0.95 * dt; elevatorInput = -0.4; }
+                if (keys.k) { pitch -= 0.95 * dt; elevatorInput = 0.4; }
+                elevatorLeft.rotation.x = elevatorInput;
+                elevatorRight.rotation.x = elevatorInput;
+
+                // Roll Control (J = Bank LEFT, L = Bank RIGHT)
+                let aileronInput = 0;
+                if (keys.j) { roll += 1.4 * dt; aileronInput = 0.35; }
+                if (keys.l) { roll -= 1.4 * dt; aileronInput = -0.35; }
+                aileronLeft.rotation.z = aileronInput;
+                aileronRight.rotation.z = -aileronInput;
+
+                // Aerodynamic Centripetal Turning from Bank Angle (Roll creates Yaw)
+                yaw -= Math.sin(roll) * 0.75 * dt * (airspeed / MAX_AIRSPEED);
+
+                // Natural Aerodynamic Stability Dampening
+                if (!keys.j && !keys.l) roll *= 0.96;
+
+                // STALL DYNAMICS (Airspeed < Stall Speed)
+                if (airspeed < STALL_SPEED) {
+                    pitch -= 0.9 * dt; // Forced nose drop
+                    climbRate = -GRAVITY * 2.5; // High sink rate loss of lift
+                } else {
+                    // Aerodynamic Lift calculation proportional to speed^2 vs pitch angle
+                    const lift = Math.pow(airspeed / TAKEOFF_SPEED, 2) * GRAVITY;
+                    climbRate = (lift - GRAVITY) + Math.sin(pitch) * airspeed;
+                }
+            }
+
+            // 3. POSITION & ORIENTATION UPDATE
+            const forward = new THREE.Vector3(0, 0, -1);
+            const euler = new THREE.Euler(pitch, yaw, roll, 'YXZ');
+            forward.applyEuler(euler);
+
+            airplaneGroup.position.addScaledVector(forward, airspeed * dt);
+            if (!isGrounded) {
+                airplaneGroup.position.y += climbRate * dt;
+            }
+
+            airplaneGroup.rotation.copy(euler);
+
+            // Propeller Rotation proportional to Engine RPM
+            propellerMesh.rotation.z += (throttle * 40.0 + 5.0) * dt;
+
+            // 4. LANDING & GROUND COLLISION DETECTION
+            const currentY = airplaneGroup.position.y;
+            if (currentY <= 1.25) {
+                if (!isGrounded) {
+                    // Check if touchdown parameters are safe for landing
+                    const safeDescent = climbRate > -12.0;
+                    const safeRoll = Math.abs(roll) < 0.35;
+                    const safePitch = Math.abs(pitch) < 0.35;
+
+                    if (safeDescent && safeRoll && safePitch) {
+                        // Smooth Touchdown
+                        isGrounded = true;
+                        airplaneGroup.position.y = 1.25;
+                        pitch = 0;
+                        roll = 0;
+                        playTouchdownSound();
+                    } else {
+                        // Hard Crash
+                        triggerCrash();
+                    }
+                } else {
+                    airplaneGroup.position.y = 1.25;
+                }
+            }
+
+            // 5. SKYSCRAPER COLLISION DETECTION
+            const planeBox = new THREE.Box3().setFromObject(airplaneGroup);
+            for (let i = 0; i < buildingBoxes.length; i++) {
+                if (planeBox.intersectsBox(buildingBoxes[i])) {
+                    triggerCrash();
+                    break;
+                }
+            }
+
+            // 6. TARGET RINGS CHECK
+            ringObjects.forEach(item => {
+                if (!item.cleared) {
+                    const dist = airplaneGroup.position.distanceTo(item.mesh.position);
+                    if (dist < 22.0) {
+                        item.cleared = true;
+                        item.mesh.material.color.setHex(0x22c55e); // Turn green
+                        ringsCleared++;
+                        playRingChime();
+                        document.getElementById('val-rings').innerText = `${ringsCleared} / 15`;
+                    }
+                }
+            });
+
+            // 7. AUDIO SYNTH MODULATION
+            if (audioCtx) {
+                const rpmHz = 40 + throttle * 140 + airspeed * 0.6;
+                engineOsc.frequency.setTargetAtTime(rpmHz, audioCtx.currentTime, 0.1);
+                engineFilter.frequency.setTargetAtTime(200 + throttle * 1200, audioCtx.currentTime, 0.1);
+                windGain.gain.setTargetAtTime(Math.pow(airspeed / MAX_AIRSPEED, 2) * 0.2, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function updateCameraAndHUD() {
+            // Dynamic Chase Camera Offset behind Aircraft
+            const cameraOffset = new THREE.Vector3(0, 4.5, 16.0);
+            cameraOffset.applyEuler(airplaneGroup.rotation);
+
+            const targetCamPos = airplaneGroup.position.clone().add(cameraOffset);
+            camera.position.lerp(targetCamPos, 0.12);
+
+            const lookAtPos = airplaneGroup.position.clone().add(
+                new THREE.Vector3(0, 1.2, -10).applyEuler(airplaneGroup.rotation)
+            );
+            camera.lookAt(lookAtPos);
+
+            // Dynamic Camera FOV scaling with speed
+            camera.fov = 60 + (airspeed / MAX_AIRSPEED) * 15;
+            camera.updateProjectionMatrix();
+
+            // HUD Avionics Tape Updates
+            document.getElementById('val-speed').innerText = Math.round(airspeed);
+            document.getElementById('val-altitude').innerText = Math.max(0, Math.round(airplaneGroup.position.y * 3.28084)); // Feet
+            document.getElementById('val-throttle-txt').innerText = `${Math.round(throttle * 100)}%`;
+            document.getElementById('throttle-bar-fill').style.width = `${throttle * 100}%`;
+
+            // Horizon Indicator Visual Transforms
+            const pitchDeg = pitch * (180 / Math.PI);
+            const rollDeg = roll * (180 / Math.PI);
+            const horizonLine = document.getElementById('horizon-pitch-line');
+            horizonLine.style.transform = `translateY(${pitchDeg * 1.2}px) rotate(${rollDeg}deg)`;
+
+            // Status Badge Update
+            const badge = document.getElementById('status-badge');
+            if (airspeed < STALL_SPEED && !isGrounded) {
+                badge.className = 'status-badge badge-stall';
+                badge.innerText = 'STALL WARNING!';
+            } else if (isGrounded) {
+                badge.className = 'status-badge badge-ground';
+                badge.innerText = 'GROUND TAXI';
+            } else {
+                badge.className = 'status-badge badge-airborne';
+                badge.innerText = 'AIRBORNE';
+            }
+        }
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene & Atmospheric Fog
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // Atmospheric sky blue
+            scene.fog = new THREE.FogExp2(0xa0c8f0, 0.00028);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 8000);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Build World & Aircraft
+            buildEnvironment();
+            createAircraftMesh();
+            setupControls();
+
+            // Window Resize Handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Main Animation Game Loop
+            function animate() {
+                requestAnimationFrame(animate);
+                const dt = Math.min(clock.getDelta(), 0.1);
+
+                updateFlightPhysics(dt);
+                updateCameraAndHUD();
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

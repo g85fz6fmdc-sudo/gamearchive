@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>boring clicker</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            transition: none !important;
+            animation: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .stats-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 15px;
+            line-height: 1.3;
+        }
+
+        button, select {
+            background-color: var(--bg-color) !important;
+            color: var(--text-color) !important;
+            border: 1px solid var(--text-color) !important;
+            padding: 10px 14px;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: left;
+            outline: none !important;
+            width: 100%;
+        }
+
+        button:hover, button:active, button:focus,
+        select:hover, select:active, select:focus {
+            background-color: var(--bg-color) !important;
+            color: var(--text-color) !important;
+            border: 1px solid var(--text-color) !important;
+            outline: none !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .main-click-btn {
+            padding: 24px;
+            font-size: 18px;
+            text-align: center;
+            font-weight: normal;
+        }
+
+        .section-title {
+            font-size: 13px;
+            text-transform: lowercase;
+            margin-top: 8px;
+            border-bottom: 1px solid var(--text-color);
+            padding-bottom: 4px;
+        }
+
+        .upgrades-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .color-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+            border-top: 1px dashed var(--text-color);
+            padding-top: 12px;
+        }
+
+        .reset-btn {
+            margin-top: 30px;
+            font-size: 12px;
+            padding: 6px 10px;
+            width: auto;
+            align-self: flex-start;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="stats-panel">
+            <div id="stat-points">points: 0</div>
+            <div id="stat-pps">points per second: 0</div>
+            <div id="stat-ppc">points per click: 1</div>
+        </div>
+
+        <button id="main-click-btn" class="main-click-btn">click</button>
+
+        <div id="upgrades-section" style="display: none;">
+            <div class="section-title">upgrades</div>
+            <div id="upgrades-stack" class="upgrades-stack"></div>
+        </div>
+
+        <div id="color-menu-section" class="color-panel" style="display: none;">
+            <div class="section-title">color selection</div>
+            <select id="color-select">
+                <option value="white">white</option>
+                <option value="red">red</option>
+                <option value="blue">blue</option>
+                <option value="purple">purple</option>
+                <option value="green">green</option>
+                <option value="yellow">yellow</option>
+                <option value="gray">gray</option>
+                <option value="black">black</option>
+            </select>
+        </div>
+
+        <button id="reset-btn" class="reset-btn">reset progress</button>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'boring_clicker_save_data';
+
+        const THEMES = {
+            'white': { bg: '#ffffff', text: '#000000' },
+            'red': { bg: '#ff0000', text: '#ffffff' },
+            'blue': { bg: '#0000ff', text: '#ffffff' },
+            'purple': { bg: '#800080', text: '#ffffff' },
+            'green': { bg: '#008000', text: '#ffffff' },
+            'yellow': { bg: '#ffff00', text: '#000000' },
+            'gray': { bg: '#808080', text: '#ffffff' },
+            'black': { bg: '#000000', text: '#ffffff' }
+        };
+
+        const UPGRADES_DEF = [
+            { id: 'c1', name: '+1 point per click', type: 'click', amount: 1, baseCost: 15, revealCost: 0 },
+            { id: 's1', name: '+1 point per second', type: 'sec', amount: 1, baseCost: 100, revealCost: 30 },
+            { id: 'c2', name: '+5 points per click', type: 'click', amount: 5, baseCost: 500, revealCost: 200 },
+            { id: 's2', name: '+10 points per second', type: 'sec', amount: 10, baseCost: 3000, revealCost: 1200 },
+            { id: 'c3', name: '+50 points per click', type: 'click', amount: 50, baseCost: 10000, revealCost: 4000 },
+            { id: 's3', name: '+100 points per second', type: 'sec', amount: 100, baseCost: 50000, revealCost: 20000 },
+            { id: 'c4', name: '+500 points per click', type: 'click', amount: 500, baseCost: 250000, revealCost: 100000 },
+            { id: 's4', name: '+1,000 points per second', type: 'sec', amount: 1000, baseCost: 1000000, revealCost: 400000 },
+            { id: 'c5', name: '+5,000 points per click', type: 'click', amount: 5000, baseCost: 5000000, revealCost: 2000000 },
+            { id: 's5', name: '+10,000 points per second', type: 'sec', amount: 10000, baseCost: 25000000, revealCost: 10000000 }
+        ];
+
+        const COLOR_MENU_DEF = {
+            id: 'color_menu',
+            name: 'color menu',
+            baseCost: 100000000,
+            revealCost: 40000000
+        };
+
+        let gameState = {
+            points: 0,
+            lifetimePoints: 0,
+            pointsPerClick: 1,
+            pointsPerSecond: 0,
+            upgradeCounts: {},
+            colorMenuUnlocked: false,
+            currentColor: 'white'
+        };
+
+        const elPoints = document.getElementById('stat-points');
+        const elPps = document.getElementById('stat-pps');
+        const elPpc = document.getElementById('stat-ppc');
+        const elMainBtn = document.getElementById('main-click-btn');
+        const elUpgradesSection = document.getElementById('upgrades-section');
+        const elUpgradesStack = document.getElementById('upgrades-stack');
+        const elColorSection = document.getElementById('color-menu-section');
+        const elColorSelect = document.getElementById('color-select');
+        const elResetBtn = document.getElementById('reset-btn');
+
+        function getUpgradeCost(baseCost, count) {
+            return Math.floor(baseCost * Math.pow(1.15, count));
+        }
+
+        function formatNum(num) {
+            return Math.floor(num).toLocaleString('en-US');
+        }
+
+        function applyTheme(colorName) {
+            const theme = THEMES[colorName] || THEMES['white'];
+            document.documentElement.style.setProperty('--bg-color', theme.bg);
+            document.documentElement.style.setProperty('--text-color', theme.text);
+        }
+
+        function recalculateStats() {
+            let ppc = 1;
+            let pps = 0;
+
+            UPGRADES_DEF.forEach(upg => {
+                const count = gameState.upgradeCounts[upg.id] || 0;
+                if (upg.type === 'click') {
+                    ppc += upg.amount * count;
+                } else if (upg.type === 'sec') {
+                    pps += upg.amount * count;
+                }
+            });
+
+            gameState.pointsPerClick = ppc;
+            gameState.pointsPerSecond = pps;
+        }
+
+        function saveGame() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+            } catch (e) {
+                // Ignore storage errors
+            }
+        }
+
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    gameState = {
+                        points: typeof parsed.points === 'number' ? parsed.points : 0,
+                        lifetimePoints: typeof parsed.lifetimePoints === 'number' ? parsed.lifetimePoints : (parsed.points || 0),
+                        pointsPerClick: 1,
+                        pointsPerSecond: 0,
+                        upgradeCounts: parsed.upgradeCounts || {},
+                        colorMenuUnlocked: !!parsed.colorMenuUnlocked,
+                        currentColor: parsed.currentColor || 'white'
+                    };
+                }
+            } catch (e) {
+                // Reset to default on parse error
+            }
+            recalculateStats();
+            applyTheme(gameState.currentColor);
+            elColorSelect.value = gameState.currentColor;
+        }
+
+        function render() {
+            elPoints.textContent = 'points: ' + formatNum(gameState.points);
+            elPps.textContent = 'points per second: ' + formatNum(gameState.pointsPerSecond);
+            elPpc.textContent = 'points per click: ' + formatNum(gameState.pointsPerClick);
+
+            let hasVisibleUpgrades = false;
+            elUpgradesStack.innerHTML = '';
+
+            // Render standard upgrades
+            UPGRADES_DEF.forEach(upg => {
+                const count = gameState.upgradeCounts[upg.id] || 0;
+                const cost = getUpgradeCost(upg.baseCost, count);
+
+                if (gameState.lifetimePoints >= upg.revealCost) {
+                    hasVisibleUpgrades = true;
+                    const btn = document.createElement('button');
+                    btn.textContent = `${upg.name} - cost: ${formatNum(cost)} [owned: ${count}]`;
+                    btn.disabled = gameState.points < cost;
+                    btn.addEventListener('click', () => {
+                        if (gameState.points >= cost) {
+                            gameState.points -= cost;
+                            gameState.upgradeCounts[upg.id] = (gameState.upgradeCounts[upg.id] || 0) + 1;
+                            recalculateStats();
+                            saveGame();
+                            render();
+                        }
+                    });
+                    elUpgradesStack.appendChild(btn);
+                }
+            });
+
+            // Render 100M Color Menu Upgrade if not yet bought
+            if (!gameState.colorMenuUnlocked && gameState.lifetimePoints >= COLOR_MENU_DEF.revealCost) {
+                hasVisibleUpgrades = true;
+                const btn = document.createElement('button');
+                btn.textContent = `${COLOR_MENU_DEF.name} - cost: ${formatNum(COLOR_MENU_DEF.baseCost)}`;
+                btn.disabled = gameState.points < COLOR_MENU_DEF.baseCost;
+                btn.addEventListener('click', () => {
+                    if (gameState.points >= COLOR_MENU_DEF.baseCost) {
+                        gameState.points -= COLOR_MENU_DEF.baseCost;
+                        gameState.colorMenuUnlocked = true;
+                        saveGame();
+                        render();
+                    }
+                });
+                elUpgradesStack.appendChild(btn);
+            }
+
+            elUpgradesSection.style.display = hasVisibleUpgrades ? 'block' : 'none';
+            elColorSection.style.display = gameState.colorMenuUnlocked ? 'flex' : 'none';
+        }
+
+        elMainBtn.addEventListener('click', () => {
+            gameState.points += gameState.pointsPerClick;
+            gameState.lifetimePoints += gameState.pointsPerClick;
+            render();
+        });
+
+        elColorSelect.addEventListener('change', (e) => {
+            const selectedColor = e.target.value;
+            if (THEMES[selectedColor]) {
+                gameState.currentColor = selectedColor;
+                applyTheme(selectedColor);
+                saveGame();
+            }
+        });
+
+        elResetBtn.addEventListener('click', () => {
+            gameState = {
+                points: 0,
+                lifetimePoints: 0,
+                pointsPerClick: 1,
+                pointsPerSecond: 0,
+                upgradeCounts: {},
+                colorMenuUnlocked: false,
+                currentColor: 'white'
+            };
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
+            recalculateStats();
+            applyTheme('white');
+            elColorSelect.value = 'white';
+            render();
+        });
+
+        // Auto-clicker game loop running every 100ms
+        setInterval(() => {
+            if (gameState.pointsPerSecond > 0) {
+                const add = gameState.pointsPerSecond / 10;
+                gameState.points += add;
+                gameState.lifetimePoints += add;
+                render();
+            }
+        }, 100);
+
+        // Auto-save loop running every 1 second
+        setInterval(() => {
+            saveGame();
+        }, 1000);
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            loadGame();
+            render();
+        });
+    </script>
+</body>
+</html>
