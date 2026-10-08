@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huss Valley</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #87ceeb; font-family: 'Inter', sans-serif; color: #ffffff; }
+        #game-canvas { width: 100%; height: 100%; display: block; }
+        #crosshair { pointer-events: none; transition: transform 0.05s ease-out, opacity 0.2s ease; }
+        .crosshair-dot { background-color: #ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 12px rgba(0, 255, 204, 0.8); }
+        .crosshair-line { background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 4px rgba(0, 255, 204, 0.5); }
+        .glass-panel { background: rgba(10, 20, 38, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 240, 255, 0.15); }
+        #overlay { transition: opacity 0.25s ease-in-out, visibility 0.25s; }
+        .title-font { font-family: 'Orbitron', sans-serif; }
+        #red-vignette { background: radial-gradient(circle at center, transparent 35%, rgba(220, 38, 38, 0.85) 100%); opacity: 0; transition: opacity 0.1s ease-out; }
+        @keyframes purpleGlow { 0%, 100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.6), inset 0 0 10px rgba(168, 85, 247, 0.4); } 50% { box-shadow: 0 0 30px rgba(216, 180, 254, 0.9), inset 0 0 20px rgba(216, 180, 254, 0.6); } }
+        .hussing-glow { animation: purpleGlow 1s infinite alternate; }
+        #death-screen { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: #000; cursor: default; }
+        #death-screen.show { display: flex; animation: deathIn 0.3s ease-out forwards; }
+        @keyframes deathIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes deathSlam { 0% { transform: scale(1.35); opacity: 0; } 60% { transform: scale(0.98); opacity: 1; } 100% { transform: scale(1); } }
+        #blood-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .death-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2.5rem; padding: 2rem; max-width: 960px; text-align: center; }
+        .death-title { margin: 0; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(1.8rem, 5.5vw, 4rem); line-height: 1.2; letter-spacing: 0.06em; color: #f4e6e6; text-shadow: 0 0 14px #000, 0 4px 0 #3a0000, 0 0 50px rgba(0, 0, 0, 0.95); animation: deathSlam 0.5s ease-out both; }
+        .death-btn { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.18em; color: #fff; padding: 1rem 3rem; border-radius: 0.75rem; border: 2px solid #ff4a4a; background: linear-gradient(#9d0b0b, #5c0000); box-shadow: 0 0 25px rgba(180, 0, 0, 0.7), inset 0 0 12px rgba(0, 0, 0, 0.5); cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease; }
+        .death-btn:hover { transform: scale(1.06); background: linear-gradient(#c01010, #770000); box-shadow: 0 0 40px rgba(255, 30, 30, 0.8), inset 0 0 12px rgba(0, 0, 0, 0.4); }
+        .death-btn:active { transform: scale(0.97); }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden bg-[#87ceeb]">
+    <div id="red-vignette" class="pointer-events-none fixed inset-0 z-10"></div>
+    <canvas id="game-canvas"></canvas>
+    <div class="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex flex-wrap items-center gap-3 text-xs title-font tracking-wider border border-white/20 shadow-lg">
+            <span id="camera-badge" class="bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200">[F] CAM: 3RD PERSON</span>
+            <span id="hussing-badge" class="hidden bg-purple-500/30 text-purple-200 border border-purple-400/60 px-3 py-1 rounded-lg font-black uppercase transition-all duration-200 hussing-glow">⚡ [N] ELITE HUSSING MODE: ACTIVE (5X SPEED)</span>
+            <span class="text-slate-300 flex items-center gap-2"><span class="bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-bold">SHIFT</span> Sprint</span>
+            <span class="text-slate-300 flex items-center gap-2"><span class="bg-purple-400/20 text-purple-300 border border-purple-400/40 px-2 py-0.5 rounded text-[10px] font-bold">N</span> Huss Mode</span>
+            <span class="text-slate-300 flex items-center gap-2"><span class="bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-bold">SPACE</span> Jump</span>
+            <span id="chaser-status" class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg font-black uppercase">HORDE: 4 HUSSERS PURSUING</span>
+        </div>
+    </div>
+    <div id="crosshair" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center pointer-events-none z-20 opacity-90">
+        <div class="crosshair-dot w-1.5 h-1.5 rounded-full"></div>
+        <div class="crosshair-line absolute w-2.5 h-0.5 left-0"></div>
+        <div class="crosshair-line absolute w-2.5 h-0.5 right-0"></div>
+        <div class="crosshair-line absolute h-2.5 w-0.5 top-0"></div>
+        <div class="crosshair-line absolute h-2.5 w-0.5 bottom-0"></div>
+    </div>
+    <div id="overlay" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 text-center cursor-pointer bg-slate-950/50 backdrop-blur-md">
+        <div class="max-w-md w-full glass-panel rounded-3xl p-8 flex flex-col items-center border border-white/20 transform transition hover:scale-[1.01]">
+            <div class="inline-block bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-widest mb-4 title-font">Welcome to Huss Valley</div>
+            <h1 class="text-3xl sm:text-4xl font-black text-white title-font tracking-wider mb-2 drop-shadow-md">HUSS VALLEY</h1>
+            <p class="text-slate-300 text-xs sm:text-sm mb-6 max-w-xs leading-relaxed">Run across Huss Valley along the infinite central road. Toggle <span class="text-purple-300 font-bold">Elite Hussing Mode</span> for a 5x velocity boost!</p>
+            <div class="w-full bg-gradient-to-r from-purple-600 via-rose-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-slate-950 font-black py-4 px-6 rounded-2xl text-base tracking-wider transition duration-200 shadow-[0_0_30px_rgba(168,85,247,0.4)] mb-6 title-font">CLICK TO LOCK MOUSE & ENTER</div>
+            <div class="w-full grid grid-cols-2 gap-2.5 text-left bg-slate-900/60 rounded-2xl p-4 border border-white/10 text-xs">
+                <div class="flex items-center space-x-2"><span class="bg-white/10 text-cyan-300 px-2 py-1 rounded font-bold title-font text-[10px]">WASD</span><span class="text-slate-300 text-[11px]">Move</span></div>
+                <div class="flex items-center space-x-2"><span class="bg-white/10 text-amber-300 px-2 py-1 rounded font-bold title-font text-[10px]">SHIFT</span><span class="text-slate-300 text-[11px]">Sprint</span></div>
+                <div class="flex items-center space-x-2"><span class="bg-white/10 text-purple-300 px-2 py-1 rounded font-bold title-font text-[10px]">N KEY</span><span class="text-slate-300 text-[11px]">Elite Hussing (5x)</span></div>
+                <div class="flex items-center space-x-2"><span class="bg-white/10 text-emerald-300 px-2 py-1 rounded font-bold title-font text-[10px]">F KEY</span><span class="text-slate-300 text-[11px]">1st / 3rd Person</span></div>
+            </div>
+            <div class="mt-5 text-[11px] text-slate-400 flex items-center space-x-2"><span>Sensitivity:</span><input id="sens-slider" type="range" min="0.0005" max="0.005" step="0.0005" value="0.002" class="w-28 accent-purple-400 cursor-pointer"></div>
+        </div>
+    </div>
+    <div id="death-screen">
+        <canvas id="blood-canvas"></canvas>
+        <div class="death-content">
+            <h2 class="death-title">YOU WERE FED TO THE BEAST OF THE VALLEY</h2>
+            <button id="restart-btn" class="death-btn">RESTART</button>
+        </div>
+    </div>
+    <script>
+        const CONFIG = { TILE_SIZE: 100, GROUND_DIM: 20000, EYE_HEIGHT: 4.6, BASE_SPEED: 2200.0, SPRINT_SPEED: 5500.0, ACCEL: 9.5, FRICTION: 6.5, JUMP_FORCE: 380.0, GRAVITY: 950.0, BASE_FOV: 75, MAX_FOV: 120, PARTICLE_COUNT: 1200, CATCH_RADIUS: 14 };
+
+        class SoundEngine {
+            constructor() { this.ctx = null; this.noiseNode = null; this.filterNode = null; this.gainNode = null; this.noiseBuf = null; this.initialized = false; this.laughTimer = 0; this.stepTimer = 0.75; this.stepFoot = false; }
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    const bufferSize = 2 * this.ctx.sampleRate;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+                    this.noiseNode = this.ctx.createBufferSource(); this.noiseNode.buffer = noiseBuffer; this.noiseNode.loop = true;
+                    this.filterNode = this.ctx.createBiquadFilter(); this.filterNode.type = 'lowpass'; this.filterNode.frequency.setValueAtTime(80, this.ctx.currentTime);
+                    this.gainNode = this.ctx.createGain(); this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+                    this.noiseNode.connect(this.filterNode); this.filterNode.connect(this.gainNode); this.gainNode.connect(this.ctx.destination); this.noiseNode.start();
+                    this.noiseBuf = noiseBuffer;
+                    this.initialized = true;
+                } catch (e) { console.warn('AudioContext unavailable:', e); }
+            }
+            updateWind(speedRatio) {
+                if (!this.initialized || !this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const cutoff = 100 + Math.pow(Math.min(1.0, speedRatio), 1.8) * 5500;
+                const volume = Math.min(0.4, Math.pow(Math.min(1.0, speedRatio), 1.3) * 0.4);
+                this.filterNode.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 0.05);
+                this.gainNode.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.05);
+            }
+            updateChaserProximity(dist, dt) {
+                if (!this.initialized || !this.ctx) return;
+                if (dist < 1200) {
+                    const normDist = 1 - Math.max(0, Math.min(1, dist / 1200));
+                    this.laughTimer += dt;
+                    const laughInterval = 0.25 - normDist * 0.18;
+                    if (this.laughTimer > laughInterval) { this.laughTimer = 0; if (dist < 350) this.playUncannyLaughStaccato(normDist); }
+                }
+            }
+            silence() {
+                if (!this.initialized || !this.ctx) return;
+                this.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+                this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
+                this.stepTimer = 0.75;
+            }
+            // speedNorm: 0 = standing, ~0.4 = walking, ~1 = sprinting, up to ~5 = elite hussing
+            updateFootsteps(dt, speedNorm, grounded) {
+                if (!this.initialized || !this.ctx) return;
+                if (!grounded || speedNorm < 0.03) { this.stepTimer = 0.75; return; }
+                const cadence = Math.min(10, 2.4 + 4.6 * Math.min(speedNorm, 1) + 0.8 * Math.max(0, Math.min(speedNorm, 5) - 1));
+                this.stepTimer += dt * cadence;
+                if (this.stepTimer >= 1) { this.stepTimer -= 1; this.playFootstep(speedNorm); }
+            }
+            playFootstep(speedNorm) {
+                const ctx = this.ctx, t = ctx.currentTime;
+                const k = Math.min(1, speedNorm / 2.5);
+                const vol = 0.07 + 0.33 * Math.pow(k, 0.7);
+                this.stepFoot = !this.stepFoot;
+                const out = ctx.createGain(); out.gain.value = 1;
+                if (ctx.createStereoPanner) {
+                    const pan = ctx.createStereoPanner(); pan.pan.value = this.stepFoot ? -0.15 : 0.15;
+                    out.connect(pan); pan.connect(ctx.destination);
+                } else { out.connect(ctx.destination); }
+                // Scuff / impact (filtered noise)
+                const src = ctx.createBufferSource(); src.buffer = this.noiseBuf;
+                const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.value = (450 + k * 1800) * (0.9 + Math.random() * 0.2);
+                const decay = 0.11 - k * 0.04;
+                const ng = ctx.createGain();
+                ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(vol, t + 0.005); ng.gain.exponentialRampToValueAtTime(0.0005, t + decay);
+                src.connect(lp); lp.connect(ng); ng.connect(out);
+                src.start(t, Math.random() * 1.5); src.stop(t + decay + 0.02);
+                // Low thump
+                const osc = ctx.createOscillator(); osc.type = 'sine';
+                osc.frequency.setValueAtTime((95 + k * 70) * (this.stepFoot ? 1 : 0.92), t);
+                osc.frequency.exponentialRampToValueAtTime(40, t + 0.09);
+                const og = ctx.createGain(); og.gain.setValueAtTime(vol * 0.9, t); og.gain.exponentialRampToValueAtTime(0.0005, t + 0.1);
+                osc.connect(og); og.connect(out); osc.start(t); osc.stop(t + 0.12);
+            }
+            playDeathSequence() {
+                if (!this.initialized || !this.ctx) return;
+                const ctx = this.ctx;
+                if (ctx.state === 'suspended') ctx.resume();
+                const t0 = ctx.currentTime + 0.02;
+                const comp = ctx.createDynamicsCompressor();
+                comp.threshold.value = -16; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.2;
+                const master = ctx.createGain(); master.gain.value = 0.9;
+                comp.connect(master); master.connect(ctx.destination);
+                const curve = new Float32Array(1024);
+                for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 6); }
+
+                // ---- Scream: detuned saws + vibrato -> distortion -> vocal formants
+                const dist = ctx.createWaveShaper(); dist.curve = curve; dist.oversample = '2x';
+                const voice = ctx.createGain(); voice.gain.setValueAtTime(0.0001, t0);
+                voice.gain.linearRampToValueAtTime(0.55, t0 + 0.05);
+                voice.gain.linearRampToValueAtTime(0.5, t0 + 1.2);
+                voice.gain.exponentialRampToValueAtTime(0.0008, t0 + 2.2);
+                const vibrato = ctx.createOscillator(); vibrato.frequency.value = 8.5;
+                const vibGain = ctx.createGain(); vibGain.gain.value = 38; vibrato.connect(vibGain);
+                const rasp = ctx.createOscillator(); rasp.frequency.value = 27;
+                const raspGain = ctx.createGain(); raspGain.gain.value = 28; rasp.connect(raspGain);
+                [0, 9, -13].forEach(detune => {
+                    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = detune;
+                    const f = o.frequency;
+                    f.setValueAtTime(380, t0); f.exponentialRampToValueAtTime(1050, t0 + 0.22);
+                    f.linearRampToValueAtTime(1350, t0 + 0.7); f.linearRampToValueAtTime(1150, t0 + 1.4);
+                    f.exponentialRampToValueAtTime(520, t0 + 2.2);
+                    vibGain.connect(f); raspGain.connect(f);
+                    o.connect(dist); o.start(t0); o.stop(t0 + 2.3);
+                });
+                vibrato.start(t0); vibrato.stop(t0 + 2.3); rasp.start(t0); rasp.stop(t0 + 2.3);
+                [[800, 3, 1.0], [1500, 4, 0.8], [2800, 5, 0.5]].forEach(([freq, q, g]) => {
+                    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+                    const bg = ctx.createGain(); bg.gain.value = g;
+                    dist.connect(bp); bp.connect(bg); bg.connect(voice);
+                });
+                const body = ctx.createGain(); body.gain.value = 0.25; dist.connect(body); body.connect(voice);
+                voice.connect(comp);
+                // breath / rasp noise riding under the scream
+                const breath = ctx.createBufferSource(); breath.buffer = this.noiseBuf; breath.loop = true;
+                const bpf = ctx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.frequency.value = 3000; bpf.Q.value = 0.8;
+                const bGain = ctx.createGain(); bGain.gain.setValueAtTime(0.0001, t0);
+                bGain.gain.linearRampToValueAtTime(0.22, t0 + 0.1); bGain.gain.exponentialRampToValueAtTime(0.0008, t0 + 2.1);
+                breath.connect(bpf); bpf.connect(bGain); bGain.connect(comp); breath.start(t0); breath.stop(t0 + 2.2);
+
+                // ---- Crunch: sharp bone-snap bursts, a wet squelch and a deep impact
+                const crack = (tt, vol, freq, dur) => {
+                    const s = ctx.createBufferSource(); s.buffer = this.noiseBuf;
+                    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 0.9;
+                    const sh = ctx.createWaveShaper(); sh.curve = curve;
+                    const g = ctx.createGain();
+                    g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(vol, tt + 0.002); g.gain.exponentialRampToValueAtTime(0.0005, tt + dur);
+                    s.connect(bp); bp.connect(sh); sh.connect(g); g.connect(comp);
+                    s.start(tt, Math.random() * 1.5); s.stop(tt + dur + 0.02);
+                    const o = ctx.createOscillator(); o.type = 'triangle';
+                    o.frequency.setValueAtTime(190, tt); o.frequency.exponentialRampToValueAtTime(50, tt + dur);
+                    const og = ctx.createGain(); og.gain.setValueAtTime(vol * 0.7, tt); og.gain.exponentialRampToValueAtTime(0.0005, tt + dur);
+                    o.connect(og); og.connect(comp); o.start(tt); o.stop(tt + dur + 0.02);
+                };
+                crack(t0 + 0.10, 1.0, 700, 0.24);
+                [0.2, 0.29, 0.38, 0.5, 0.6, 0.76].forEach(tt => crack(t0 + tt, 0.4 + Math.random() * 0.4, 900 + Math.random() * 1800, 0.04 + Math.random() * 0.06));
+                const squelch = ctx.createBufferSource(); squelch.buffer = this.noiseBuf;
+                const slp = ctx.createBiquadFilter(); slp.type = 'lowpass'; slp.Q.value = 4;
+                slp.frequency.setValueAtTime(2500, t0 + 0.12); slp.frequency.exponentialRampToValueAtTime(300, t0 + 0.75);
+                const sg = ctx.createGain(); sg.gain.setValueAtTime(0.0001, t0 + 0.12); sg.gain.linearRampToValueAtTime(0.5, t0 + 0.17); sg.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.8);
+                squelch.connect(slp); slp.connect(sg); sg.connect(comp); squelch.start(t0 + 0.12, Math.random() * 1.0); squelch.stop(t0 + 0.85);
+                const boom = ctx.createOscillator(); boom.type = 'sine';
+                boom.frequency.setValueAtTime(75, t0 + 0.1); boom.frequency.exponentialRampToValueAtTime(28, t0 + 0.6);
+                const bmg = ctx.createGain(); bmg.gain.setValueAtTime(1.0, t0 + 0.1); bmg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.65);
+                boom.connect(bmg); bmg.connect(comp); boom.start(t0 + 0.1); boom.stop(t0 + 0.7);
+            }
+            playUncannyLaughStaccato(intensity) {
+                if (!this.initialized || !this.ctx) return;
+                const laughOsc = this.ctx.createOscillator(); const laughGain = this.ctx.createGain();
+                laughOsc.type = 'square'; const baseFreq = 400 + Math.random() * 350 + intensity * 200;
+                laughOsc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime); laughOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, this.ctx.currentTime + 0.08);
+                laughGain.gain.setValueAtTime(0.15 * intensity, this.ctx.currentTime); laughGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                laughOsc.connect(laughGain); laughGain.connect(this.ctx.destination);
+                laughOsc.start(); laughOsc.stop(this.ctx.currentTime + 0.08);
+            }
+            playJumpSound() {
+                if (!this.initialized || !this.ctx) return;
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(150, this.ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(480, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.18);
+            }
+        }
+        const audioFX = new SoundEngine();
+
+        function createRobloxFaceTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFD700'; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#111111'; ctx.fillRect(55, 65, 32, 55); ctx.fillRect(169, 65, 32, 55);
+            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(63, 73, 12, 18); ctx.fillRect(177, 73, 12, 18);
+            ctx.lineWidth = 14; ctx.strokeStyle = '#111111'; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(128, 140, 65, 0.15 * Math.PI, 0.85 * Math.PI, false); ctx.stroke();
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createSpongeBodyTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFE500'; ctx.fillRect(0, 0, 512, 512);
+            ctx.fillStyle = '#C8B000';
+            const spots = [ {x: 80, y: 80, r: 28}, {x: 220, y: 140, r: 42}, {x: 380, y: 90, r: 35}, {x: 130, y: 320, r: 50}, {x: 420, y: 360, r: 40}, {x: 290, y: 440, r: 30}, {x: 450, y: 200, r: 22}, {x: 60, y: 450, r: 38}, {x: 280, y: 220, r: 25} ];
+            spots.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#9E8B00'; ctx.lineWidth = 4; ctx.stroke(); });
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGrinchFaceTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#228B22'; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#FFFF00'; ctx.beginPath(); ctx.ellipse(70, 90, 30, 20, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(186, 90, 30, 20, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#CC0000'; ctx.fillRect(66, 80, 8, 20); ctx.fillRect(182, 80, 8, 20);
+            ctx.strokeStyle = '#111111'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(35, 65); ctx.lineTo(100, 95); ctx.stroke(); ctx.beginPath(); ctx.moveTo(221, 65); ctx.lineTo(156, 95); ctx.stroke();
+            ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(50, 150); ctx.quadraticCurveTo(128, 210, 206, 140); ctx.stroke();
+            ctx.beginPath(); ctx.arc(45, 145, 10, 0, Math.PI * 2); ctx.arc(210, 135, 10, 0, Math.PI * 2); ctx.stroke();
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGridTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#3a9d23'; ctx.fillRect(0, 0, 512, 512);
+            ctx.fillStyle = '#338f1f'; ctx.fillRect(0, 0, 256, 256); ctx.fillRect(256, 256, 256, 256);
+            ctx.strokeStyle = '#43b328'; ctx.lineWidth = 4;
+            for (let i = 0; i < 512; i += 64) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke(); }
+            ctx.strokeStyle = '#57d633'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, 512, 512);
+            const texture = new THREE.CanvasTexture(canvas); texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+            const repeats = CONFIG.GROUND_DIM / CONFIG.TILE_SIZE; texture.repeat.set(repeats, repeats);
+            return texture;
+        }
+
+        function createRoadTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 1024; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#222222'; ctx.fillRect(0, 0, 256, 1024);
+            ctx.fillStyle = '#888888'; ctx.fillRect(0, 0, 10, 1024); ctx.fillRect(246, 0, 10, 1024);
+            ctx.fillStyle = '#FFCC00';
+            const dashLength = 128; const gapLength = 128;
+            for (let y = 0; y < 1024; y += dashLength + gapLength) { ctx.fillRect(122, y + 32, 12, dashLength); }
+            const texture = new THREE.CanvasTexture(canvas); texture.wrapS = THREE.ClampToEdgeWrapping; texture.wrapT = THREE.RepeatWrapping;
+            const repeats = CONFIG.GROUND_DIM / 100; texture.repeat.set(1, repeats);
+            return texture;
+        }
+
+        function createRobloxPlayer() {
+            const playerGroup = new THREE.Group();
+            const yellowMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.4 });
+            const blueMat = new THREE.MeshStandardMaterial({ color: 0x0066FF, roughness: 0.4 });
+            const greenMat = new THREE.MeshStandardMaterial({ color: 0x00AA00, roughness: 0.4 });
+            const faceTex = createRobloxFaceTexture();
+            const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.4 });
+            const headMaterials = [yellowMat, yellowMat, yellowMat, yellowMat, yellowMat, faceMat];
+            const torsoGeo = new THREE.BoxGeometry(1.6, 2.0, 0.8);
+            const torsoMesh = new THREE.Mesh(torsoGeo, blueMat); torsoMesh.position.set(0, 2.8, 0); playerGroup.add(torsoMesh);
+            const headGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const headMesh = new THREE.Mesh(headGeo, headMaterials); headMesh.position.set(0, 1.6, 0); torsoMesh.add(headMesh);
+            const armGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6); armGeo.translate(0, -0.7, 0);
+            const leftArmPivot = new THREE.Group(); leftArmPivot.position.set(-1.1, 0.8, 0); leftArmPivot.add(new THREE.Mesh(armGeo, yellowMat)); torsoMesh.add(leftArmPivot);
+            const rightArmPivot = new THREE.Group(); rightArmPivot.position.set(1.1, 0.8, 0); rightArmPivot.add(new THREE.Mesh(armGeo, yellowMat)); torsoMesh.add(rightArmPivot);
+            const legGeo = new THREE.BoxGeometry(0.7, 1.8, 0.7); legGeo.translate(0, -0.8, 0);
+            const leftLegPivot = new THREE.Group(); leftLegPivot.position.set(-0.45, -1.0, 0); leftLegPivot.add(new THREE.Mesh(legGeo, greenMat)); torsoMesh.add(leftLegPivot);
+            const rightLegPivot = new THREE.Group(); rightLegPivot.position.set(0.45, -1.0, 0); rightLegPivot.add(new THREE.Mesh(legGeo, greenMat)); torsoMesh.add(rightLegPivot);
+            return { group: playerGroup, torso: torsoMesh, head: headMesh, leftArm: leftArmPivot, rightArm: rightArmPivot, leftLeg: leftLegPivot, rightLeg: rightLegPivot };
+        }
+
+        function createSpongeBobChaser() {
+            const sbGroup = new THREE.Group();
+            const spongeTex = createSpongeBodyTexture();
+            const spongeMat = new THREE.MeshStandardMaterial({ map: spongeTex, roughness: 0.6 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+            const brownMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.4 });
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+            const yellowMat = new THREE.MeshStandardMaterial({ color: 0xFFE500, roughness: 0.5 });
+            const irisMat = new THREE.MeshStandardMaterial({ color: 0x00A2FF, roughness: 0.2 });
+            const mouthMat = new THREE.MeshBasicMaterial({ color: 0x440000 });
+            const bodyGeo = new THREE.BoxGeometry(4.2, 4.8, 2.2);
+            const bodyMesh = new THREE.Mesh(bodyGeo, spongeMat); bodyMesh.position.set(0, 5.8, 0); sbGroup.add(bodyMesh);
+            const shirtGeo = new THREE.BoxGeometry(4.22, 0.9, 2.22);
+            const shirtMesh = new THREE.Mesh(shirtGeo, whiteMat); shirtMesh.position.set(0, 2.95, 0); sbGroup.add(shirtMesh);
+            const pantsGeo = new THREE.BoxGeometry(4.24, 1.1, 2.24);
+            const pantsMesh = new THREE.Mesh(pantsGeo, brownMat); pantsMesh.position.set(0, 1.95, 0); sbGroup.add(pantsMesh);
+            const tieGeo = new THREE.BoxGeometry(0.5, 1.1, 0.1);
+            const tieMesh = new THREE.Mesh(tieGeo, redMat); tieMesh.position.set(0, 2.6, -1.13); sbGroup.add(tieMesh);
+            const eyeGeo = new THREE.SphereGeometry(0.72, 24, 24);
+            const irisGeo = new THREE.SphereGeometry(0.38, 16, 16);
+            const pupilGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const leftEye = new THREE.Mesh(eyeGeo, whiteMat); leftEye.position.set(-1.05, 6.6, -1.1);
+            const leftIris = new THREE.Mesh(irisGeo, irisMat); leftIris.position.set(0, 0, -0.52);
+            const leftPupil = new THREE.Mesh(pupilGeo, blackMat); leftPupil.position.set(0, 0, -0.25);
+            leftIris.add(leftPupil); leftEye.add(leftIris); sbGroup.add(leftEye);
+            const rightEye = new THREE.Mesh(eyeGeo, whiteMat); rightEye.position.set(1.05, 6.6, -1.1);
+            const rightIris = new THREE.Mesh(irisGeo, irisMat); rightIris.position.set(0, 0, -0.52);
+            const rightPupil = new THREE.Mesh(pupilGeo, blackMat); rightPupil.position.set(0, 0, -0.25);
+            rightIris.add(rightPupil); rightEye.add(rightIris); sbGroup.add(rightEye);
+            const noseGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.6, 16); noseGeo.rotateX(Math.PI / 2);
+            const noseMesh = new THREE.Mesh(noseGeo, yellowMat); noseMesh.position.set(0, 5.8, -1.8); sbGroup.add(noseMesh);
+            const mouthGeo = new THREE.BoxGeometry(2.4, 0.6, 0.05);
+            const mouthMesh = new THREE.Mesh(mouthGeo, mouthMat); mouthMesh.position.set(0, 4.8, -1.12);
+            const toothGeo = new THREE.BoxGeometry(0.35, 0.45, 0.08);
+            const leftTooth = new THREE.Mesh(toothGeo, whiteMat); leftTooth.position.set(-0.25, -0.3, -0.02);
+            const rightTooth = new THREE.Mesh(toothGeo, whiteMat); rightTooth.position.set(0.25, -0.3, -0.02);
+            mouthMesh.add(leftTooth); mouthMesh.add(rightTooth); sbGroup.add(mouthMesh);
+            const legGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.8, 12); legGeo.translate(0, -0.9, 0);
+            const shoeGeo = new THREE.BoxGeometry(0.65, 0.45, 1.1); shoeGeo.translate(0, -0.2, -0.2);
+            const leftLegPivot = new THREE.Group(); leftLegPivot.position.set(-1.1, 1.4, 0);
+            const leftLegMesh = new THREE.Mesh(legGeo, yellowMat); const leftShoe = new THREE.Mesh(shoeGeo, blackMat); leftShoe.position.set(0, -1.7, 0); leftLegMesh.add(leftShoe); leftLegPivot.add(leftLegMesh); sbGroup.add(leftLegPivot);
+            const rightLegPivot = new THREE.Group(); rightLegPivot.position.set(1.1, 1.4, 0);
+            const rightLegMesh = new THREE.Mesh(legGeo, yellowMat); const rightShoe = new THREE.Mesh(shoeGeo, blackMat); rightShoe.position.set(0, -1.7, 0); rightLegMesh.add(rightShoe); rightLegPivot.add(rightLegMesh); sbGroup.add(rightLegPivot);
+            const armGeo = new THREE.CylinderGeometry(0.16, 0.16, 2.2, 12); armGeo.translate(0, -1.1, 0);
+            const sleeveGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.6, 12);
+            const leftArmPivot = new THREE.Group(); leftArmPivot.position.set(-2.35, 4.8, 0);
+            const leftSleeve = new THREE.Mesh(sleeveGeo, whiteMat); leftSleeve.position.set(0, -0.2, 0);
+            const leftArmMesh = new THREE.Mesh(armGeo, yellowMat); leftArmPivot.add(leftSleeve); leftArmPivot.add(leftArmMesh); sbGroup.add(leftArmPivot);
+            const rightArmPivot = new THREE.Group(); rightArmPivot.position.set(2.35, 4.8, 0);
+            const rightSleeve = new THREE.Mesh(sleeveGeo, whiteMat); rightSleeve.position.set(0, -0.2, 0);
+            const rightArmMesh = new THREE.Mesh(armGeo, yellowMat); rightArmPivot.add(rightSleeve); rightArmPivot.add(rightArmMesh); sbGroup.add(rightArmPivot);
+            return { group: sbGroup, leftLeg: leftLegPivot, rightLeg: rightLegPivot, leftArm: leftArmPivot, rightArm: rightArmPivot };
+        }
+
+        function createGrinchChaser() {
+            const grinchGroup = new THREE.Group();
+            const greenMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.4 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+            const grinchFaceTex = createGrinchFaceTexture();
+            const faceMat = new THREE.MeshStandardMaterial({ map: grinchFaceTex, roughness: 0.5 });
+            const torsoGeo = new THREE.BoxGeometry(1.8, 2.2, 1.0);
+            const torsoMesh = new THREE.Mesh(torsoGeo, redMat); torsoMesh.position.set(0, 3.0, 0);
+            const trimBottom = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.3, 1.1), whiteMat); trimBottom.position.set(0, -1.0, 0); torsoMesh.add(trimBottom);
+            const collar = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.3, 1.1), whiteMat); collar.position.set(0, 1.0, 0); torsoMesh.add(collar);
+            grinchGroup.add(torsoMesh);
+            const headMaterials = [greenMat, greenMat, greenMat, greenMat, greenMat, faceMat];
+            const headGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+            const headMesh = new THREE.Mesh(headGeo, headMaterials); headMesh.position.set(0, 1.8, 0); torsoMesh.add(headMesh);
+            const hatGroup = new THREE.Group();
+            const hatConeGeo = new THREE.ConeGeometry(0.85, 2.2, 16); hatConeGeo.rotateX(0.2);
+            const hatMesh = new THREE.Mesh(hatConeGeo, redMat); hatMesh.position.set(0, 1.2, -0.2);
+            const hatBrim = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.18, 12, 24), whiteMat); hatBrim.rotation.x = Math.PI / 2; hatBrim.position.set(0, 0.2, 0); hatGroup.add(hatBrim);
+            const pomPom = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), whiteMat); pomPom.position.set(0, 2.1, -0.4); hatGroup.add(pomPom);
+            hatGroup.add(hatMesh); hatGroup.position.set(0, 0.65, 0); headMesh.add(hatGroup);
+            const armGeo = new THREE.BoxGeometry(0.55, 1.8, 0.55); armGeo.translate(0, -0.7, 0);
+            const leftArmPivot = new THREE.Group(); leftArmPivot.position.set(-1.2, 0.8, 0);
+            const leftArmMesh = new THREE.Mesh(armGeo, redMat); const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), greenMat); leftHand.position.set(0, -1.6, 0); leftArmMesh.add(leftHand); leftArmPivot.add(leftArmMesh); torsoMesh.add(leftArmPivot);
+            const rightArmPivot = new THREE.Group(); rightArmPivot.position.set(1.2, 0.8, 0);
+            const rightArmMesh = new THREE.Mesh(armGeo, redMat); const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), greenMat); rightHand.position.set(0, -1.6, 0); rightArmMesh.add(rightHand); rightArmPivot.add(rightArmMesh); torsoMesh.add(rightArmPivot);
+            const legGeo = new THREE.BoxGeometry(0.65, 1.8, 0.65); legGeo.translate(0, -0.8, 0);
+            const leftLegPivot = new THREE.Group(); leftLegPivot.position.set(-0.5, -1.1, 0); leftLegPivot.add(new THREE.Mesh(legGeo, greenMat)); torsoMesh.add(leftLegPivot);
+            const rightLegPivot = new THREE.Group(); rightLegPivot.position.set(0.5, -1.1, 0); rightLegPivot.add(new THREE.Mesh(legGeo, greenMat)); torsoMesh.add(rightLegPivot);
+            return { group: grinchGroup, torso: torsoMesh, head: headMesh, leftArm: leftArmPivot, rightArm: rightArmPivot, leftLeg: leftLegPivot, rightLeg: rightLegPivot };
+        }
+
+        function createUpsideDownSantaChaser() {
+            const santaGroup = new THREE.Group(); const santaInvertedGroup = new THREE.Group();
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.4 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.2 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xFFDAB9, roughness: 0.5 });
+            const torsoGeo = new THREE.BoxGeometry(1.8, 2.2, 1.1);
+            const torsoMesh = new THREE.Mesh(torsoGeo, redMat); torsoMesh.position.set(0, 3.0, 0);
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.35, 1.15), blackMat); belt.position.set(0, -0.2, 0);
+            const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 1.18), goldMat); belt.add(buckle); torsoMesh.add(belt);
+            const vTrim = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.22, 1.12), whiteMat); torsoMesh.add(vTrim);
+            santaInvertedGroup.add(torsoMesh);
+            const headGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const headMesh = new THREE.Mesh(headGeo, skinMat); headMesh.position.set(0, 1.7, 0); torsoMesh.add(headMesh);
+            const beardGeo = new THREE.BoxGeometry(1.3, 1.2, 0.5);
+            const beardMesh = new THREE.Mesh(beardGeo, whiteMat); beardMesh.position.set(0, -0.4, -0.45); headMesh.add(beardMesh);
+            const hatMesh = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.8, 16), redMat); hatMesh.rotation.x = 0.3; hatMesh.position.set(0, 1.2, -0.2);
+            const hatTrim = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.16, 12, 24), whiteMat); hatTrim.rotation.x = Math.PI / 2; hatTrim.position.set(0, 0.2, 0); hatMesh.add(hatTrim); headMesh.add(hatMesh);
+            const armGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6); armGeo.translate(0, -0.7, 0);
+            const leftArmPivot = new THREE.Group(); leftArmPivot.position.set(-1.2, 0.8, 0);
+            const leftArmMesh = new THREE.Mesh(armGeo, redMat); const leftMitten = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), blackMat); leftMitten.position.set(0, -1.6, 0); leftArmMesh.add(leftMitten); leftArmPivot.add(leftArmMesh); torsoMesh.add(leftArmPivot);
+            const rightArmPivot = new THREE.Group(); rightArmPivot.position.set(1.2, 0.8, 0);
+            const rightArmMesh = new THREE.Mesh(armGeo, redMat); const rightMitten = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), blackMat); rightMitten.position.set(0, -1.6, 0); rightArmMesh.add(rightMitten); rightArmPivot.add(rightArmMesh); torsoMesh.add(rightArmPivot);
+            const legGeo = new THREE.BoxGeometry(0.65, 1.8, 0.65); legGeo.translate(0, -0.8, 0);
+            const leftLegPivot = new THREE.Group(); leftLegPivot.position.set(-0.5, -1.1, 0);
+            const leftLegMesh = new THREE.Mesh(legGeo, redMat); const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.9), blackMat); leftBoot.position.set(0, -1.7, -0.1); leftLegMesh.add(leftBoot); leftLegPivot.add(leftLegMesh); torsoMesh.add(leftLegPivot);
+            const rightLegPivot = new THREE.Group(); rightLegPivot.position.set(0.5, -1.1, 0);
+            const rightLegMesh = new THREE.Mesh(legGeo, redMat); const rightBoot = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.9), blackMat); rightBoot.position.set(0, -1.7, -0.1); rightLegMesh.add(rightBoot); rightLegPivot.add(rightLegMesh); torsoMesh.add(rightLegPivot);
+            santaInvertedGroup.rotation.z = Math.PI; santaInvertedGroup.position.y = 6.2; santaGroup.add(santaInvertedGroup);
+            return { group: santaGroup, torso: torsoMesh, head: headMesh, leftArm: leftArmPivot, rightArm: rightArmPivot, leftLeg: leftLegPivot, rightLeg: rightLegPivot };
+        }
+
+        function createHyperMuscularHusser() {
+            const buffGroup = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.4 });
+            const tankMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.6 });
+            const shortsMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.6 });
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+            const torsoGeo = new THREE.BoxGeometry(3.5, 2.5, 1.8);
+            const torsoMesh = new THREE.Mesh(torsoGeo, skinMat); torsoMesh.position.set(0, 5.2, 0);
+            const tankGeo = new THREE.BoxGeometry(3.52, 2.2, 1.82);
+            const tankMesh = new THREE.Mesh(tankGeo, tankMat); tankMesh.position.set(0, 0.1, 0); torsoMesh.add(tankMesh);
+            const shortsGeo = new THREE.BoxGeometry(2.6, 1.4, 1.6);
+            const shortsMesh = new THREE.Mesh(shortsGeo, shortsMat); shortsMesh.position.set(0, -1.8, 0); torsoMesh.add(shortsMesh);
+            buffGroup.add(torsoMesh);
+            const neckGeo = new THREE.BoxGeometry(1.2, 0.8, 1.2);
+            const neckMesh = new THREE.Mesh(neckGeo, skinMat); neckMesh.position.set(0, 1.5, 0); torsoMesh.add(neckMesh);
+            const headGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+            const headMesh = new THREE.Mesh(headGeo, skinMat); headMesh.position.set(0, 0.8, 0); neckMesh.add(headMesh);
+            const armGeo = new THREE.BoxGeometry(1.4, 2.8, 1.4); armGeo.translate(0, -1.2, 0);
+            const leftArmPivot = new THREE.Group(); leftArmPivot.position.set(-2.5, 1.0, 0);
+            const leftShoulder = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.6, 1.7), skinMat); leftShoulder.position.set(0, 0, 0); leftArmPivot.add(leftShoulder);
+            const leftArmMesh = new THREE.Mesh(armGeo, skinMat); leftArmPivot.add(leftArmMesh); torsoMesh.add(leftArmPivot);
+            const rightArmPivot = new THREE.Group(); rightArmPivot.position.set(2.5, 1.0, 0);
+            const rightShoulder = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.6, 1.7), skinMat); rightShoulder.position.set(0, 0, 0); rightArmPivot.add(rightShoulder);
+            const rightArmMesh = new THREE.Mesh(armGeo, skinMat); rightArmPivot.add(rightArmMesh); torsoMesh.add(rightArmPivot);
+            const legGeo = new THREE.BoxGeometry(1.2, 3.0, 1.2); legGeo.translate(0, -1.3, 0);
+            const leftLegPivot = new THREE.Group(); leftLegPivot.position.set(-0.9, -2.2, 0);
+            const leftLegMesh = new THREE.Mesh(legGeo, skinMat); const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 1.8), shoeMat); leftShoe.position.set(0, -2.6, -0.2); leftLegMesh.add(leftShoe); leftLegPivot.add(leftLegMesh); torsoMesh.add(leftLegPivot);
+            const rightLegPivot = new THREE.Group(); rightLegPivot.position.set(0.9, -2.2, 0);
+            const rightLegMesh = new THREE.Mesh(legGeo, skinMat); const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 1.8), shoeMat); rightShoe.position.set(0, -2.6, -0.2); rightLegMesh.add(rightShoe); rightLegPivot.add(rightLegMesh); torsoMesh.add(rightLegPivot);
+            return { group: buffGroup, torso: torsoMesh, head: headMesh, leftArm: leftArmPivot, rightArm: rightArmPivot, leftLeg: leftLegPivot, rightLeg: rightLegPivot };
+        }
+
+        let scene, camera, renderer, clock;
+        let groundMesh, roadMesh, speedParticles, particleGeo;
+        let playerModel;
+        let hussers = [];
+        let cameraMode = 'THIRD_PERSON';
+        let isEliteHussing = false;
+        let gameState = 'menu'; // 'menu' (paused) | 'playing' | 'dead'
+
+        function initScene() {
+            const container = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.FogExp2(0x87ceeb, 0.00002);
+
+            renderer = new THREE.WebGLRenderer({ canvas: container, antialias: true, logarithmicDepthBuffer: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            camera = new THREE.PerspectiveCamera(CONFIG.BASE_FOV, window.innerWidth / window.innerHeight, 1.0, 300000);
+            clock = new THREE.Clock();
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.85); scene.add(ambient);
+            const sun = new THREE.DirectionalLight(0xfffaed, 1.25); sun.position.set(1200, 2500, 800); scene.add(sun);
+
+            const groundGeo = new THREE.PlaneGeometry(CONFIG.GROUND_DIM, CONFIG.GROUND_DIM);
+            const groundTex = createGridTexture(); groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const groundMat = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.85, metalness: 0.05 });
+            groundMesh = new THREE.Mesh(groundGeo, groundMat); groundMesh.rotation.x = -Math.PI / 2; scene.add(groundMesh);
+
+            const roadGeo = new THREE.PlaneGeometry(40, CONFIG.GROUND_DIM);
+            const roadTex = createRoadTexture(); roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.75, metalness: 0.1 });
+            roadMesh = new THREE.Mesh(roadGeo, roadMat); roadMesh.rotation.x = -Math.PI / 2; roadMesh.position.y = 0.02; scene.add(roadMesh);
+
+            playerModel = createRobloxPlayer(); scene.add(playerModel.group);
+
+            hussers = [
+                { name: 'SpongeBob', speedMult: 1.0001, turnInertiaBase: 16.0, model: createSpongeBobChaser(), state: { pos: new THREE.Vector3(0, 0, -800), vel: new THREE.Vector3(0, 0, 0), rollAngle: 0, animTime: 0 } },
+                { name: 'Grinch', speedMult: 1.03, turnInertiaBase: 18.0, model: createGrinchChaser(), state: { pos: new THREE.Vector3(-150, 0, -850), vel: new THREE.Vector3(0, 0, 0), rollAngle: 0, animTime: 2.0 } },
+                { name: 'Upside-Down Santa', speedMult: 0.97, turnInertiaBase: 14.0, model: createUpsideDownSantaChaser(), state: { pos: new THREE.Vector3(150, 0, -850), vel: new THREE.Vector3(0, 0, 0), rollAngle: 0, animTime: 4.0 } },
+                { name: 'Hyper-Muscular Husser', speedMult: 0.94, turnInertiaBase: 8.0, model: createHyperMuscularHusser(), state: { pos: new THREE.Vector3(0, 0, -950), vel: new THREE.Vector3(0, 0, 0), rollAngle: 0, animTime: 1.0 } }
+            ];
+
+            hussers.forEach(h => { h.spawn = h.state.pos.clone(); scene.add(h.model.group); h.model.group.position.set(h.state.pos.x, 0, h.state.pos.z); });
+
+            createMonuments(); createSpeedParticles();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createMonuments() {
+            const group = new THREE.Group();
+            const pillarGeo = new THREE.BoxGeometry(70, 500, 70);
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+            const ringGeo = new THREE.TorusGeometry(100, 8, 16, 48);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+            for (let i = 0; i < 450; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 600 + Math.random() * 85000;
+                const x = Math.cos(angle) * dist; const z = Math.sin(angle) * dist;
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat); pillar.position.set(x, 250, z); group.add(pillar);
+                if (i % 5 === 0) { const ring = new THREE.Mesh(ringGeo, ringMat); ring.position.set(x, 120, z); ring.rotation.x = Math.PI / 2; group.add(ring); }
+            }
+            scene.add(group);
+        }
+
+        function createSpeedParticles() {
+            const count = CONFIG.PARTICLE_COUNT; particleGeo = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                particlePositions[i * 3] = (Math.random() - 0.5) * 350;
+                particlePositions[i * 3 + 1] = Math.random() * 140;
+                particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 450;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            const pCanvas = document.createElement('canvas'); pCanvas.width = 32; pCanvas.height = 32; const pCtx = pCanvas.getContext('2d');
+            const grad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16); grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)'); grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            pCtx.fillStyle = grad; pCtx.fillRect(0, 0, 32, 32);
+            const pTex = new THREE.CanvasTexture(pCanvas);
+            const pMat = new THREE.PointsMaterial({ size: 2.8, map: pTex, transparent: true, opacity: 0.65, depthWrite: false, blending: THREE.AdditiveBlending });
+            speedParticles = new THREE.Points(particleGeo, pMat); scene.add(speedParticles);
+        }
+
+        let pitch = 0, yaw = 0, mouseSens = 0.002, isLocked = false;
+        const keysPressed = {};
+        const playerPos = new THREE.Vector3(0, CONFIG.EYE_HEIGHT, 0);
+        const velocity = new THREE.Vector3();
+        let animTime = 0;
+
+        function updateCameraBadge() {
+            const badge = document.getElementById('camera-badge');
+            if (cameraMode === 'FIRST_PERSON') { badge.innerText = '[F] CAM: 1ST PERSON'; badge.className = 'bg-rose-400/20 text-rose-300 border border-rose-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200'; }
+            else { badge.innerText = '[F] CAM: 3RD PERSON'; badge.className = 'bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200'; }
+        }
+
+        function updateHussingBadge() {
+            const badge = document.getElementById('hussing-badge');
+            if (isEliteHussing) badge.classList.remove('hidden'); else badge.classList.add('hidden');
+        }
+
+        function setupControls() {
+            const overlay = document.getElementById('overlay');
+            const sensSlider = document.getElementById('sens-slider');
+            sensSlider.addEventListener('input', (e) => { mouseSens = parseFloat(e.target.value); });
+            overlay.addEventListener('click', () => { audioFX.init(); document.body.requestPointerLock(); });
+            document.addEventListener('pointerlockchange', () => {
+                isLocked = (document.pointerLockElement === document.body);
+                if (gameState === 'dead') return;
+                if (isLocked) {
+                    gameState = 'playing';
+                    overlay.style.opacity = '0'; overlay.style.visibility = 'hidden';
+                } else { pauseGame(); }
+            });
+            document.addEventListener('pointerlockerror', () => { if (gameState !== 'dead') pauseGame(); });
+            document.getElementById('restart-btn').addEventListener('click', restartGame);
+            document.addEventListener('mousemove', (e) => {
+                if (!isLocked) return;
+                yaw -= e.movementX * mouseSens; pitch -= e.movementY * mouseSens; pitch = Math.max(-1.55, Math.min(1.55, pitch));
+            });
+            window.addEventListener('keydown', (e) => {
+                keysPressed[e.code] = true;
+                if (e.code === 'KeyF') { cameraMode = (cameraMode === 'FIRST_PERSON') ? 'THIRD_PERSON' : 'FIRST_PERSON'; updateCameraBadge(); }
+                if (e.code === 'KeyN') { isEliteHussing = !isEliteHussing; updateHussingBadge(); }
+            });
+            window.addEventListener('keyup', (e) => { keysPressed[e.code] = false; });
+        }
+
+        function pauseGame() {
+            gameState = 'menu';
+            for (const k in keysPressed) keysPressed[k] = false;
+            const overlay = document.getElementById('overlay');
+            overlay.style.opacity = '1'; overlay.style.visibility = 'visible';
+            audioFX.silence();
+        }
+
+        function triggerDeath() {
+            if (gameState !== 'playing') return;
+            gameState = 'dead';
+            for (const k in keysPressed) keysPressed[k] = false;
+            document.getElementById('red-vignette').style.opacity = '0';
+            audioFX.silence();
+            audioFX.playDeathSequence();
+            drawBloodBackground();
+            document.getElementById('death-screen').classList.add('show');
+            if (document.exitPointerLock) document.exitPointerLock();
+        }
+
+        function restartGame() {
+            document.getElementById('death-screen').classList.remove('show');
+            playerPos.set(0, CONFIG.EYE_HEIGHT, 0); velocity.set(0, 0, 0);
+            yaw = 0; pitch = 0; animTime = 0;
+            isEliteHussing = false; updateHussingBadge();
+            hussers.forEach(h => {
+                h.state.pos.copy(h.spawn); h.state.vel.set(0, 0, 0); h.state.rollAngle = 0;
+                h.model.group.position.set(h.spawn.x, 0, h.spawn.z); h.model.group.rotation.set(0, 0, 0);
+            });
+            audioFX.stepTimer = 0.75; audioFX.laughTimer = 0;
+            gameState = 'menu';
+            audioFX.init();
+            try { const r = document.body.requestPointerLock(); if (r && r.catch) r.catch(() => pauseGame()); } catch (e) { pauseGame(); }
+        }
+
+        function drawBloodBackground() {
+            const cv = document.getElementById('blood-canvas');
+            const W = cv.width = window.innerWidth, H = cv.height = window.innerHeight;
+            const g = cv.getContext('2d');
+            const rand = (a, b) => a + Math.random() * (b - a);
+            const scale = Math.min(W, H) / 800;
+            const blood = (lo = 105, hi = 185) => `rgb(${rand(lo, hi) | 0}, ${rand(0, 12) | 0}, ${rand(0, 12) | 0})`;
+
+            // Dark wall with a deep red glow
+            g.fillStyle = '#080101'; g.fillRect(0, 0, W, H);
+            const base = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.hypot(W, H) / 2);
+            base.addColorStop(0, '#520a0a'); base.addColorStop(0.55, '#260505'); base.addColorStop(1, '#040000');
+            g.fillStyle = base; g.fillRect(0, 0, W, H);
+
+            // Faint old stains
+            for (let i = 0; i < 45; i++) {
+                const x = rand(0, W), y = rand(0, H), r = rand(40, 220) * scale;
+                const st = g.createRadialGradient(x, y, 0, x, y, r);
+                st.addColorStop(0, `rgba(${rand(70, 120) | 0}, 0, 0, 0.16)`); st.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                g.fillStyle = st; g.fillRect(x - r, y - r, r * 2, r * 2);
+            }
+
+            const splat = (x, y, r, withDrips) => {
+                g.save();
+                g.shadowColor = 'rgba(0, 0, 0, 0.7)'; g.shadowBlur = 3 + r * 0.12; g.shadowOffsetY = 1 + r * 0.04;
+
+                // Radiating streaks with droplets at the tips
+                const rays = 6 + (Math.random() * 12 | 0);
+                for (let i = 0; i < rays; i++) {
+                    const a = Math.random() * Math.PI * 2, len = r * (Math.random() < 0.12 ? rand(2.6, 4.2) : rand(1.05, 2.3)), w = 2 + r * rand(0.05, 0.17);
+                    const dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
+                    const ex = x + dx * len, ey = y + dy * len;
+                    g.fillStyle = blood();
+                    g.beginPath();
+                    g.moveTo(x + nx * w * 2.2, y + ny * w * 2.2);
+                    g.quadraticCurveTo(x + dx * len * 0.55 + nx * w, y + dy * len * 0.55 + ny * w, ex, ey);
+                    g.quadraticCurveTo(x + dx * len * 0.55 - nx * w, y + dy * len * 0.55 - ny * w, x - nx * w * 2.2, y - ny * w * 2.2);
+                    g.closePath(); g.fill();
+                    g.beginPath(); g.arc(ex, ey, w * rand(0.9, 1.7) + 0.5, 0, Math.PI * 2); g.fill();
+                }
+
+                // Satellite droplets
+                const drops = 8 + (Math.random() * 30 | 0);
+                for (let i = 0; i < drops; i++) {
+                    const a = Math.random() * Math.PI * 2, d = r * rand(1.2, 4.8);
+                    g.fillStyle = blood(); g.beginPath();
+                    g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, rand(0.8, 2 + r * 0.07), 0, Math.PI * 2); g.fill();
+                }
+
+                // Lumpy main blob: a big smoothed shape plus overlapping lobes
+                const blob = (bx, by, br) => {
+                    const N = 26, radii = [];
+                    for (let i = 0; i < N; i++) radii.push(br * rand(0.65, 1.3));
+                    const pt = i => { const k = i % N, a = k / N * Math.PI * 2; return [bx + Math.cos(a) * radii[k], by + Math.sin(a) * radii[k]]; };
+                    const p0 = pt(0), p1 = pt(1);
+                    g.beginPath(); g.moveTo((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2);
+                    for (let i = 1; i <= N; i++) {
+                        const c = pt(i), n = pt(i + 1);
+                        g.quadraticCurveTo(c[0], c[1], (c[0] + n[0]) / 2, (c[1] + n[1]) / 2);
+                    }
+                    g.closePath();
+                    const fill = g.createRadialGradient(bx - br * 0.2, by - br * 0.2, br * 0.1, bx, by, br * 1.25);
+                    fill.addColorStop(0, '#c40a0a'); fill.addColorStop(0.55, '#8a0000'); fill.addColorStop(1, '#520000');
+                    g.fillStyle = fill; g.fill();
+                };
+                blob(x, y, r);
+                const lobes = 3 + (Math.random() * 3 | 0);
+                for (let i = 0; i < lobes; i++) {
+                    const a = Math.random() * Math.PI * 2, d = r * rand(0.5, 0.95);
+                    blob(x + Math.cos(a) * d, y + Math.sin(a) * d, r * rand(0.3, 0.55));
+                }
+                g.restore();
+
+                // Wet highlights
+                g.save();
+                g.fillStyle = 'rgba(255, 190, 190, 0.28)';
+                g.beginPath(); g.ellipse(x - r * 0.3, y - r * 0.32, r * 0.26, r * 0.09, -0.6, 0, Math.PI * 2); g.fill();
+                g.fillStyle = 'rgba(255, 200, 200, 0.12)';
+                g.beginPath(); g.ellipse(x + r * 0.25, y + r * 0.2, r * 0.12, r * 0.05, -0.6, 0, Math.PI * 2); g.fill();
+                g.restore();
+
+                // Drips running down the wall
+                if (withDrips) {
+                    const n = 1 + (Math.random() * 3 | 0);
+                    for (let i = 0; i < n; i++) {
+                        const dx = x + rand(-r * 0.7, r * 0.7), dy = y + r * 0.4, len = rand(70, 300) * scale, w = rand(4, 6 + r * 0.09);
+                        const gr = g.createLinearGradient(0, dy, 0, dy + len);
+                        gr.addColorStop(0, '#8a0000'); gr.addColorStop(1, '#b00808');
+                        g.strokeStyle = gr; g.lineWidth = w; g.lineCap = 'round';
+                        g.beginPath(); g.moveTo(dx, dy); g.lineTo(dx, dy + len); g.stroke();
+                        g.fillStyle = '#b30a0a'; g.beginPath(); g.ellipse(dx, dy + len, w * 0.75, w * 1.2, 0, 0, Math.PI * 2); g.fill();
+                        g.strokeStyle = 'rgba(255, 170, 170, 0.18)'; g.lineWidth = Math.max(1, w * 0.22);
+                        g.beginPath(); g.moveTo(dx - w * 0.2, dy + 4); g.lineTo(dx - w * 0.2, dy + len - 4); g.stroke();
+                    }
+                }
+            };
+
+            for (let i = 0; i < 4; i++) splat(rand(0.08 * W, 0.92 * W), rand(0.1 * H, 0.75 * H), rand(80, 150) * scale, true);
+            for (let i = 0; i < 12; i++) splat(rand(0, W), rand(0, H), rand(28, 70) * scale, Math.random() < 0.4);
+            for (let i = 0; i < 34; i++) splat(rand(0, W), rand(0, H), rand(6, 20) * scale, false);
+
+            // Darken the middle so the text stays readable, then vignette the edges
+            const scrim = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.55);
+            scrim.addColorStop(0, 'rgba(0, 0, 0, 0.55)'); scrim.addColorStop(0.6, 'rgba(0, 0, 0, 0.2)'); scrim.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            g.fillStyle = scrim; g.fillRect(0, 0, W, H);
+            const vig = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) / 2);
+            vig.addColorStop(0, 'rgba(0, 0, 0, 0)'); vig.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
+            g.fillStyle = vig; g.fillRect(0, 0, W, H);
+        }
+
+        function updateHusserHordePhysics(dt, currentPlayerSpeed) {
+            const baseMinSpeed = 100.0 * (isEliteHussing ? 5.0 : 1.0);
+            const effectivePlayerSpeed = Math.max(baseMinSpeed, currentPlayerSpeed);
+            let closestDist = Infinity;
+            let anySkidding = false;
+
+            hussers.forEach((h, index) => {
+                const state = h.state;
+                const currentHusserSpeed = effectivePlayerSpeed * h.speedMult;
+                const targetVector = new THREE.Vector3().subVectors(playerPos, state.pos);
+                targetVector.y = 0;
+                const distanceToPlayer = targetVector.length();
+
+                if (distanceToPlayer < closestDist) closestDist = distanceToPlayer;
+
+                if (distanceToPlayer > 25000) {
+                    const playerHeading = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                    const offsetDist = 800 + Math.random() * 400;
+                    const spreadAngle = (Math.random() - 0.5) * 1.5;
+                    const spawnDir = playerHeading.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+                    state.pos.copy(playerPos).addScaledVector(spawnDir, offsetDist);
+                    state.vel.set(0, 0, 0);
+                }
+
+                if (distanceToPlayer > 0.001) {
+                    const targetDirection = targetVector.clone().normalize();
+                    const repulsion = new THREE.Vector3(0, 0, 0);
+                    hussers.forEach((other, otherIdx) => {
+                        if (index !== otherIdx) {
+                            const distToOther = state.pos.distanceTo(other.state.pos);
+                            if (distToOther < 8.0 && distToOther > 0.001) {
+                                const overlap = (8.0 - distToOther) / 8.0;
+                                const pushDir = new THREE.Vector3().subVectors(state.pos, other.state.pos);
+                                pushDir.y = 0; pushDir.normalize();
+                                repulsion.addScaledVector(pushDir, overlap * 650.0);
+                            }
+                        }
+                    });
+
+                    const desiredVelocity = targetDirection.clone().multiplyScalar(currentHusserSpeed).add(repulsion);
+                    if (desiredVelocity.lengthSq() > currentHusserSpeed * currentHusserSpeed) desiredVelocity.setLength(currentHusserSpeed);
+
+                    let turnInertiaFactor = h.turnInertiaBase || 16.0;
+                    let sideSkid = 0.0;
+                    let alignment = 1.0;
+
+                    if (state.vel.lengthSq() > 10.0) {
+                        const currentVelDir = state.vel.clone().normalize();
+                        alignment = Math.max(-1.0, Math.min(1.0, currentVelDir.dot(targetDirection)));
+                        sideSkid = currentVelDir.cross(targetDirection).y;
+
+                        if (alignment < 0.707) {
+                            const turnSeverity = (0.707 - alignment) / 1.707;
+                            const minInertia = turnInertiaFactor * 0.15;
+                            turnInertiaFactor = THREE.MathUtils.lerp(turnInertiaFactor * 0.75, minInertia, turnSeverity);
+                        }
+                    }
+
+                    if (alignment < 0.6) anySkidding = true;
+
+                    state.vel.lerp(desiredVelocity, turnInertiaFactor * dt);
+
+                    if (distanceToPlayer < 25) {
+                        const closeDecel = Math.max(0, distanceToPlayer / 25);
+                        state.vel.multiplyScalar(closeDecel);
+                    }
+
+                    if (state.vel.lengthSq() > 1.0) {
+                        const headingDir = state.vel.clone().normalize();
+                        h.model.group.rotation.y = Math.atan2(-headingDir.x, -headingDir.z);
+                    }
+
+                    state.rollAngle = THREE.MathUtils.lerp(state.rollAngle, -sideSkid * 0.85, dt * 10.0);
+                    h.model.group.rotation.z = state.rollAngle;
+                } else {
+                    state.vel.set(0, 0, 0);
+                    state.rollAngle = THREE.MathUtils.lerp(state.rollAngle, 0, dt * 8.0);
+                    h.model.group.rotation.z = state.rollAngle;
+                }
+
+                state.pos.x += state.vel.x * dt;
+                state.pos.z += state.vel.z * dt;
+                h.model.group.position.set(state.pos.x, 0, state.pos.z);
+
+                const actualSpeed = state.vel.length();
+                if (actualSpeed > 10) {
+                    state.animTime += dt * 28;
+                    const swing = Math.sin(state.animTime) * 1.2;
+                    if (h.model.leftLeg) h.model.leftLeg.rotation.x = swing;
+                    if (h.model.rightLeg) h.model.rightLeg.rotation.x = -swing;
+                    if (h.model.leftArm) h.model.leftArm.rotation.x = -swing * 1.3;
+                    if (h.model.rightArm) h.model.rightArm.rotation.x = swing * 1.3;
+                } else {
+                    if (h.model.leftLeg) h.model.leftLeg.rotation.x *= Math.exp(-12 * dt);
+                    if (h.model.rightLeg) h.model.rightLeg.rotation.x *= Math.exp(-12 * dt);
+                    if (h.model.leftArm) h.model.leftArm.rotation.x *= Math.exp(-12 * dt);
+                    if (h.model.rightArm) h.model.rightArm.rotation.x *= Math.exp(-12 * dt);
+                }
+            });
+
+            if (closestDist < CONFIG.CATCH_RADIUS) { triggerDeath(); return; }
+
+            const chaserStatusEl = document.getElementById('chaser-status');
+            if (chaserStatusEl) {
+                if (anySkidding) {
+                    chaserStatusEl.innerText = 'HORDE: SWARM DRIFTING!';
+                    chaserStatusEl.className = 'bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2.5 py-1 rounded-lg font-black uppercase animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.5)]';
+                } else {
+                    chaserStatusEl.innerText = 'HORDE: 4 HUSSERS PURSUING';
+                    chaserStatusEl.className = 'bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg font-black uppercase';
+                }
+            }
+
+            const vignette = document.getElementById('red-vignette');
+            if (closestDist < 750) {
+                const norm = 1 - (closestDist / 750);
+                const pulse = Math.sin(clock.getElapsedTime() * 18) * 0.1 * norm;
+                const opacity = Math.min(0.85, Math.pow(norm, 1.2) * 0.8 + pulse);
+                vignette.style.opacity = opacity.toFixed(2);
+            } else { vignette.style.opacity = '0'; }
+
+            audioFX.updateChaserProximity(closestDist, dt);
+        }
+
+        function updatePhysicsAndAnimation(delta) {
+            const dt = Math.min(delta, 0.08);
+            const isSprinting = !!keysPressed['ShiftLeft'];
+            let targetSpeed = isSprinting ? CONFIG.SPRINT_SPEED : CONFIG.BASE_SPEED;
+
+            if (isEliteHussing) targetSpeed *= 5.0;
+
+            const moveDir = new THREE.Vector3();
+            if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveDir.z -= 1;
+            if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveDir.z += 1;
+            if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) moveDir.x -= 1;
+            if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveDir.x += 1;
+            moveDir.normalize();
+
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+            const accelVec = new THREE.Vector3().addScaledVector(forward, -moveDir.z).addScaledVector(right, moveDir.x);
+
+            if (accelVec.lengthSq() > 0) {
+                accelVec.normalize();
+                velocity.x += accelVec.x * targetSpeed * CONFIG.ACCEL * dt;
+                velocity.z += accelVec.z * targetSpeed * CONFIG.ACCEL * dt;
+            }
+
+            const damp = Math.exp(-CONFIG.FRICTION * dt);
+            velocity.x *= damp; velocity.z *= damp;
+
+            const isOnGround = (playerPos.y <= CONFIG.EYE_HEIGHT + 0.05);
+
+            if (isOnGround) {
+                velocity.y = 0; playerPos.y = CONFIG.EYE_HEIGHT;
+                if (keysPressed['Space']) { velocity.y = CONFIG.JUMP_FORCE; audioFX.playJumpSound(); }
+            } else { velocity.y -= CONFIG.GRAVITY * dt; }
+
+            playerPos.x += velocity.x * dt; playerPos.y += velocity.y * dt; playerPos.z += velocity.z * dt;
+
+            if (playerPos.y < CONFIG.EYE_HEIGHT) { playerPos.y = CONFIG.EYE_HEIGHT; velocity.y = 0; }
+
+            groundMesh.position.x = Math.floor(playerPos.x / CONFIG.TILE_SIZE) * CONFIG.TILE_SIZE;
+            groundMesh.position.z = Math.floor(playerPos.z / CONFIG.TILE_SIZE) * CONFIG.TILE_SIZE;
+
+            const roadTileSize = 100;
+            roadMesh.position.x = 0;
+            roadMesh.position.z = Math.floor(playerPos.z / roadTileSize) * roadTileSize;
+
+            playerModel.group.position.set(playerPos.x, playerPos.y - CONFIG.EYE_HEIGHT, playerPos.z);
+            playerModel.group.rotation.y = yaw;
+
+            const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+            const maxRefSpeed = CONFIG.SPRINT_SPEED * (isEliteHussing ? 5.0 : 1.0);
+            const speedRatio = Math.min(1.0, horizontalSpeed / maxRefSpeed);
+
+            if (horizontalSpeed > 15) {
+                const animMultiplier = isEliteHussing ? 2.6 : 1.0;
+                const animSpeed = (14 + speedRatio * 34) * animMultiplier;
+                animTime += dt * animSpeed;
+                const maxSwing = Math.min(2.2, (0.45 + speedRatio * 1.1) * (isEliteHussing ? 1.45 : 1.0));
+                const swing = Math.sin(animTime) * maxSwing;
+
+                playerModel.leftArm.rotation.x = swing; playerModel.rightArm.rotation.x = -swing;
+                playerModel.leftLeg.rotation.x = -swing; playerModel.rightLeg.rotation.x = swing;
+                playerModel.torso.rotation.x = speedRatio * 0.45;
+                playerModel.torso.rotation.z = Math.sin(animTime * 0.5) * (isEliteHussing ? 0.22 : 0.12);
+                playerModel.head.rotation.z = Math.cos(animTime * 0.5) * (isEliteHussing ? 0.22 : 0.12);
+                playerModel.head.position.y = 1.6 + Math.abs(Math.sin(animTime * 2)) * (isEliteHussing ? 0.32 : 0.18);
+            } else {
+                playerModel.leftArm.rotation.x *= Math.exp(-12 * dt); playerModel.rightArm.rotation.x *= Math.exp(-12 * dt);
+                playerModel.leftLeg.rotation.x *= Math.exp(-12 * dt); playerModel.rightLeg.rotation.x *= Math.exp(-12 * dt);
+                playerModel.torso.rotation.x *= Math.exp(-12 * dt); playerModel.torso.rotation.z *= Math.exp(-12 * dt);
+                playerModel.head.rotation.z *= Math.exp(-12 * dt); playerModel.head.position.y = 1.6 + Math.sin(clock.getElapsedTime() * 3) * 0.04;
+            }
+
+            camera.rotation.order = 'YXZ'; camera.rotation.set(pitch, yaw, 0);
+
+            if (cameraMode === 'FIRST_PERSON') {
+                playerModel.group.visible = false; camera.position.copy(playerPos);
+            } else {
+                playerModel.group.visible = true;
+                const offset = new THREE.Vector3(0, 2.8, 18); offset.applyEuler(camera.rotation);
+                camera.position.copy(playerPos).add(offset);
+            }
+
+            const targetFOV = CONFIG.BASE_FOV + (Math.min(1.0, horizontalSpeed / CONFIG.SPRINT_SPEED) * (CONFIG.MAX_FOV - CONFIG.BASE_FOV));
+            camera.fov += (targetFOV - camera.fov) * 0.12; camera.updateProjectionMatrix();
+
+            if (speedParticles) {
+                speedParticles.position.copy(camera.position);
+                const positions = particleGeo.attributes.position.array;
+                const partSpeedFactor = isEliteHussing ? 0.025 : 0.08;
+                for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+                    const idx = i * 3;
+                    positions[idx] -= velocity.x * dt * partSpeedFactor;
+                    positions[idx + 1] -= velocity.y * dt * partSpeedFactor;
+                    positions[idx + 2] -= velocity.z * dt * partSpeedFactor;
+                    if (Math.abs(positions[idx]) > 175) positions[idx] = (Math.random() - 0.5) * 350;
+                    if (positions[idx + 1] < -10 || positions[idx + 1] > 130) positions[idx + 1] = Math.random() * 140;
+                    if (Math.abs(positions[idx + 2]) > 225) positions[idx + 2] = (Math.random() - 0.5) * 450;
+                }
+                particleGeo.attributes.position.needsUpdate = true;
+            }
+
+            audioFX.updateWind(horizontalSpeed / CONFIG.SPRINT_SPEED);
+            // ~1.46x is the real top speed reached while holding sprint (accel / friction)
+            audioFX.updateFootsteps(dt, horizontalSpeed / (CONFIG.SPRINT_SPEED * 1.46), playerPos.y <= CONFIG.EYE_HEIGHT + 0.05);
+            updateHusserHordePhysics(dt, horizontalSpeed);
+        }
+
+        function onWindowResize() {
+            if (gameState === 'dead') drawBloodBackground();
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            if (gameState === 'playing') updatePhysicsAndAnimation(delta);
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            initScene(); setupControls(); animate();
+        };
+    </script>
+</body>
+</html>
