@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huss Valley</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js CDN r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #87ceeb;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+        }
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        /* Minimalist Crosshair */
+        #crosshair {
+            pointer-events: none;
+            transition: transform 0.05s ease-out, opacity 0.2s ease;
+        }
+        .crosshair-dot {
+            background-color: #ffffff;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 12px rgba(0, 255, 204, 0.8);
+        }
+        .crosshair-line {
+            background-color: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 0 4px rgba(0, 255, 204, 0.5);
+        }
+        /* Glassmorphism panel overlay */
+        .glass-panel {
+            background: rgba(10, 20, 38, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 240, 255, 0.15);
+        }
+        #overlay {
+            transition: opacity 0.25s ease-in-out, visibility 0.25s;
+        }
+        .title-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Red Proximity Vignette Warning Glow */
+        #red-vignette {
+            background: radial-gradient(circle at center, transparent 35%, rgba(220, 38, 38, 0.85) 100%);
+            opacity: 0;
+            transition: opacity 0.1s ease-out;
+        }
+        @keyframes purpleGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.6), inset 0 0 10px rgba(168, 85, 247, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(216, 180, 254, 0.9), inset 0 0 20px rgba(216, 180, 254, 0.6); }
+        }
+        .hussing-glow {
+            animation: purpleGlow 1s infinite alternate;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden bg-[#87ceeb]">
+
+    <!-- Red Proximity Warning Glow Overlay -->
+    <div id="red-vignette" class="pointer-events-none fixed inset-0 z-10"></div>
+
+    <!-- Main 3D Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top-Left Live Status HUD Badge -->
+    <div class="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex flex-wrap items-center gap-3 text-xs title-font tracking-wider border border-white/20 shadow-lg">
+            <span id="camera-badge" class="bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200">
+                [F] CAM: 3RD PERSON
+            </span>
+            <span id="hussing-badge" class="hidden bg-purple-500/30 text-purple-200 border border-purple-400/60 px-3 py-1 rounded-lg font-black uppercase transition-all duration-200 hussing-glow">
+                ⚡ [N] ELITE HUSSING MODE: ACTIVE (5X SPEED)
+            </span>
+            <span class="text-slate-300 flex items-center gap-2">
+                <span class="bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded text-[10px] font-bold">SHIFT</span> Sprint
+            </span>
+            <span class="text-slate-300 flex items-center gap-2">
+                <span class="bg-purple-400/20 text-purple-300 border border-purple-400/40 px-2 py-0.5 rounded text-[10px] font-bold">N</span> Huss Mode
+            </span>
+            <span class="text-slate-300 flex items-center gap-2">
+                <span class="bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded text-[10px] font-bold">SPACE</span> Jump
+            </span>
+            <span id="chaser-status" class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg font-black uppercase">
+                CHASER: PURSUING
+            </span>
+        </div>
+    </div>
+
+    <!-- Centered Reticle Crosshair -->
+    <div id="crosshair" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center pointer-events-none z-20 opacity-90">
+        <div class="crosshair-dot w-1.5 h-1.5 rounded-full"></div>
+        <div class="crosshair-line absolute w-2.5 h-0.5 left-0"></div>
+        <div class="crosshair-line absolute w-2.5 h-0.5 right-0"></div>
+        <div class="crosshair-line absolute h-2.5 w-0.5 top-0"></div>
+        <div class="crosshair-line absolute h-2.5 w-0.5 bottom-0"></div>
+    </div>
+
+    <!-- Pointer Lock Start/Pause Overlay -->
+    <div id="overlay" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 text-center cursor-pointer bg-slate-950/50 backdrop-blur-md">
+        <div class="max-w-md w-full glass-panel rounded-3xl p-8 flex flex-col items-center border border-white/20 transform transition hover:scale-[1.01]">
+            
+            <div class="inline-block bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-widest mb-4 title-font">
+                Welcome to Huss Valley
+            </div>
+
+            <h1 class="text-3xl sm:text-4xl font-black text-white title-font tracking-wider mb-2 drop-shadow-md">
+                HUSS VALLEY
+            </h1>
+            <p class="text-slate-300 text-xs sm:text-sm mb-6 max-w-xs leading-relaxed">
+                Run across Huss Valley. Toggle <span class="text-purple-300 font-bold">Elite Hussing Mode</span> for a 5x velocity boost while HussBob chases you!
+            </p>
+
+            <!-- Click to Lock Prompt Button -->
+            <div class="w-full bg-gradient-to-r from-purple-600 via-rose-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-slate-950 font-black py-4 px-6 rounded-2xl text-base tracking-wider transition duration-200 shadow-[0_0_30px_rgba(168,85,247,0.4)] mb-6 title-font">
+                CLICK TO LOCK MOUSE & ENTER
+            </div>
+
+            <!-- Controls Key Reference Grid -->
+            <div class="w-full grid grid-cols-2 gap-2.5 text-left bg-slate-900/60 rounded-2xl p-4 border border-white/10 text-xs">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-white/10 text-cyan-300 px-2 py-1 rounded font-bold title-font text-[10px]">WASD</span>
+                    <span class="text-slate-300 text-[11px]">Move</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="bg-white/10 text-amber-300 px-2 py-1 rounded font-bold title-font text-[10px]">SHIFT</span>
+                    <span class="text-slate-300 text-[11px]">Sprint</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="bg-white/10 text-purple-300 px-2 py-1 rounded font-bold title-font text-[10px]">N KEY</span>
+                    <span class="text-slate-300 text-[11px]">Elite Hussing (5x)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="bg-white/10 text-emerald-300 px-2 py-1 rounded font-bold title-font text-[10px]">F KEY</span>
+                    <span class="text-slate-300 text-[11px]">1st / 3rd Person</span>
+                </div>
+            </div>
+
+            <!-- Mouse Sensitivity Slider -->
+            <div class="mt-5 text-[11px] text-slate-400 flex items-center space-x-2">
+                <span>Sensitivity:</span>
+                <input id="sens-slider" type="range" min="0.0005" max="0.005" step="0.0005" value="0.002" class="w-28 accent-purple-400 cursor-pointer">
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            TILE_SIZE: 100,            // Snapping grid unit step
+            GROUND_DIM: 20000,         // Ground plane dimensions
+            EYE_HEIGHT: 4.6,           // Player eye level height offset
+            BASE_SPEED: 2200.0,        // Base running velocity
+            SPRINT_SPEED: 5500.0,      // Shift sprint velocity
+            ACCEL: 9.5,                // Acceleration factor
+            FRICTION: 6.5,             // Surface dampening factor
+            JUMP_FORCE: 380.0,         // Jump height impulse
+            GRAVITY: 950.0,            // Downward gravity
+            BASE_FOV: 75,              // Rest FOV
+            MAX_FOV: 120,              // Dynamic warp FOV
+            PARTICLE_COUNT: 1200       // Speed dust particles count
+        };
+
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.noiseNode = null;
+                this.filterNode = null;
+                this.gainNode = null;
+                this.chaserOsc = null;
+                this.chaserGain = null;
+                this.initialized = false;
+                this.laughTimer = 0;
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+
+                    // Wind noise generator
+                    const bufferSize = 2 * this.ctx.sampleRate;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+
+                    this.noiseNode = this.ctx.createBufferSource();
+                    this.noiseNode.buffer = noiseBuffer;
+                    this.noiseNode.loop = true;
+
+                    this.filterNode = this.ctx.createBiquadFilter();
+                    this.filterNode.type = 'lowpass';
+                    this.filterNode.frequency.setValueAtTime(80, this.ctx.currentTime);
+
+                    this.gainNode = this.ctx.createGain();
+                    this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    this.noiseNode.connect(this.filterNode);
+                    this.filterNode.connect(this.gainNode);
+                    this.gainNode.connect(this.ctx.destination);
+                    this.noiseNode.start();
+
+                    // Chaser eerie synthesis node
+                    this.chaserOsc = this.ctx.createOscillator();
+                    this.chaserGain = this.ctx.createGain();
+                    this.chaserOsc.type = 'sawtooth';
+                    this.chaserOsc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                    this.chaserGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    this.chaserOsc.connect(this.chaserGain);
+                    this.chaserGain.connect(this.ctx.destination);
+                    this.chaserOsc.start();
+
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn('AudioContext unavailable:', e);
+                }
+            }
+
+            updateWind(speedRatio) {
+                if (!this.initialized || !this.ctx) return;
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                const cutoff = 100 + Math.pow(Math.min(1.0, speedRatio), 1.8) * 5500;
+                const volume = Math.min(0.4, Math.pow(Math.min(1.0, speedRatio), 1.3) * 0.4);
+
+                this.filterNode.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 0.05);
+                this.gainNode.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.05);
+            }
+
+            updateChaserProximity(dist, dt) {
+                if (!this.initialized || !this.ctx) return;
+
+                if (dist < 1200) {
+                    const normDist = 1 - Math.max(0, Math.min(1, dist / 1200));
+                    const volume = Math.min(0.4, Math.pow(normDist, 1.5) * 0.4);
+                    
+                    const pitch = 110 + normDist * 520 + Math.sin(this.ctx.currentTime * 18) * 40;
+                    this.chaserOsc.frequency.setTargetAtTime(pitch, this.ctx.currentTime, 0.04);
+                    this.chaserGain.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.05);
+
+                    this.laughTimer += dt;
+                    const laughInterval = 0.25 - normDist * 0.18;
+                    if (this.laughTimer > laughInterval) {
+                        this.laughTimer = 0;
+                        if (dist < 350) {
+                            this.playUncannyLaughStaccato(normDist);
+                        }
+                    }
+                } else {
+                    this.chaserGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+                }
+            }
+
+            playUncannyLaughStaccato(intensity) {
+                if (!this.initialized || !this.ctx) return;
+                const laughOsc = this.ctx.createOscillator();
+                const laughGain = this.ctx.createGain();
+
+                laughOsc.type = 'square';
+                const baseFreq = 400 + Math.random() * 350 + intensity * 200;
+                laughOsc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+                laughOsc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, this.ctx.currentTime + 0.08);
+
+                laughGain.gain.setValueAtTime(0.15 * intensity, this.ctx.currentTime);
+                laughGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+                laughOsc.connect(laughGain);
+                laughGain.connect(this.ctx.destination);
+
+                laughOsc.start();
+                laughOsc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playJumpSound() {
+                if (!this.initialized || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(480, this.ctx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.18);
+            }
+        }
+
+        const audioFX = new SoundEngine();
+
+        function createRobloxFaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.fillStyle = '#111111';
+            ctx.fillRect(55, 65, 32, 55);
+            ctx.fillRect(169, 65, 32, 55);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(63, 73, 12, 18);
+            ctx.fillRect(177, 73, 12, 18);
+
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = '#111111';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(128, 140, 65, 0.15 * Math.PI, 0.85 * Math.PI, false);
+            ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createSpongeBodyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#FFE500';
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.fillStyle = '#C8B000';
+            const spots = [
+                {x: 80, y: 80, r: 28}, {x: 220, y: 140, r: 42}, {x: 380, y: 90, r: 35},
+                {x: 130, y: 320, r: 50}, {x: 420, y: 360, r: 40}, {x: 290, y: 440, r: 30},
+                {x: 450, y: 200, r: 22}, {x: 60, y: 450, r: 38}, {x: 280, y: 220, r: 25}
+            ];
+
+            spots.forEach(s => {
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#9E8B00';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            });
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createGridTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#3a9d23';
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.fillStyle = '#338f1f';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillRect(256, 256, 256, 256);
+
+            ctx.strokeStyle = '#43b328';
+            ctx.lineWidth = 4;
+            for (let i = 0; i < 512; i += 64) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#57d633';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, 512, 512);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+
+            const repeats = CONFIG.GROUND_DIM / CONFIG.TILE_SIZE;
+            texture.repeat.set(repeats, repeats);
+            return texture;
+        }
+
+        function createRobloxPlayer() {
+            const playerGroup = new THREE.Group();
+
+            const yellowMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.4 });
+            const blueMat = new THREE.MeshStandardMaterial({ color: 0x0066FF, roughness: 0.4 });
+            const greenMat = new THREE.MeshStandardMaterial({ color: 0x00AA00, roughness: 0.4 });
+            
+            const faceTex = createRobloxFaceTexture();
+            const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.4 });
+
+            // Material Index 5 = Front (-Z, forward movement heading)
+            const headMaterials = [yellowMat, yellowMat, yellowMat, yellowMat, yellowMat, faceMat];
+
+            const torsoGeo = new THREE.BoxGeometry(1.6, 2.0, 0.8);
+            const torsoMesh = new THREE.Mesh(torsoGeo, blueMat);
+            torsoMesh.position.set(0, 2.8, 0);
+            playerGroup.add(torsoMesh);
+
+            const headGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const headMesh = new THREE.Mesh(headGeo, headMaterials);
+            headMesh.position.set(0, 1.6, 0);
+            torsoMesh.add(headMesh);
+
+            const armGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
+            armGeo.translate(0, -0.7, 0);
+
+            const leftArmPivot = new THREE.Group();
+            leftArmPivot.position.set(-1.1, 0.8, 0);
+            leftArmPivot.add(new THREE.Mesh(armGeo, yellowMat));
+            torsoMesh.add(leftArmPivot);
+
+            const rightArmPivot = new THREE.Group();
+            rightArmPivot.position.set(1.1, 0.8, 0);
+            rightArmPivot.add(new THREE.Mesh(armGeo, yellowMat));
+            torsoMesh.add(rightArmPivot);
+
+            const legGeo = new THREE.BoxGeometry(0.7, 1.8, 0.7);
+            legGeo.translate(0, -0.8, 0);
+
+            const leftLegPivot = new THREE.Group();
+            leftLegPivot.position.set(-0.45, -1.0, 0);
+            leftLegPivot.add(new THREE.Mesh(legGeo, greenMat));
+            torsoMesh.add(leftLegPivot);
+
+            const rightLegPivot = new THREE.Group();
+            rightLegPivot.position.set(0.45, -1.0, 0);
+            rightLegPivot.add(new THREE.Mesh(legGeo, greenMat));
+            torsoMesh.add(rightLegPivot);
+
+            return {
+                group: playerGroup,
+                torso: torsoMesh,
+                head: headMesh,
+                leftArm: leftArmPivot,
+                rightArm: rightArmPivot,
+                leftLeg: leftLegPivot,
+                rightLeg: rightLegPivot
+            };
+        }
+
+        function createSpongeBobChaser() {
+            const sbGroup = new THREE.Group();
+
+            const spongeTex = createSpongeBodyTexture();
+            const spongeMat = new THREE.MeshStandardMaterial({ map: spongeTex, roughness: 0.6 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+            const brownMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.5 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.4 });
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+            const yellowMat = new THREE.MeshStandardMaterial({ color: 0xFFE500, roughness: 0.5 });
+            const irisMat = new THREE.MeshStandardMaterial({ color: 0x00A2FF, roughness: 0.2 });
+            const mouthMat = new THREE.MeshBasicMaterial({ color: 0x440000 });
+
+            // Main Body Box (Porous Sponge Top)
+            const bodyGeo = new THREE.BoxGeometry(4.2, 4.8, 2.2);
+            const bodyMesh = new THREE.Mesh(bodyGeo, spongeMat);
+            bodyMesh.position.set(0, 5.8, 0);
+            sbGroup.add(bodyMesh);
+
+            // Shirt Box (White)
+            const shirtGeo = new THREE.BoxGeometry(4.22, 0.9, 2.22);
+            const shirtMesh = new THREE.Mesh(shirtGeo, whiteMat);
+            shirtMesh.position.set(0, 2.95, 0);
+            sbGroup.add(shirtMesh);
+
+            // Pants Box (Brown)
+            const pantsGeo = new THREE.BoxGeometry(4.24, 1.1, 2.24);
+            const pantsMesh = new THREE.Mesh(pantsGeo, brownMat);
+            pantsMesh.position.set(0, 1.95, 0);
+            sbGroup.add(pantsMesh);
+
+            // Red Necktie
+            const tieGeo = new THREE.BoxGeometry(0.5, 1.1, 0.1);
+            const tieMesh = new THREE.Mesh(tieGeo, redMat);
+            tieMesh.position.set(0, 2.6, -1.13);
+            sbGroup.add(tieMesh);
+
+            // Uncanny Protruding 3D Eyes
+            const eyeGeo = new THREE.SphereGeometry(0.72, 24, 24);
+            const irisGeo = new THREE.SphereGeometry(0.38, 16, 16);
+            const pupilGeo = new THREE.SphereGeometry(0.2, 16, 16);
+
+            const leftEye = new THREE.Mesh(eyeGeo, whiteMat);
+            leftEye.position.set(-1.05, 6.6, -1.1);
+            const leftIris = new THREE.Mesh(irisGeo, irisMat);
+            leftIris.position.set(0, 0, -0.52);
+            const leftPupil = new THREE.Mesh(pupilGeo, blackMat);
+            leftPupil.position.set(0, 0, -0.25);
+            leftIris.add(leftPupil);
+            leftEye.add(leftIris);
+            sbGroup.add(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeo, whiteMat);
+            rightEye.position.set(1.05, 6.6, -1.1);
+            const rightIris = new THREE.Mesh(irisGeo, irisMat);
+            rightIris.position.set(0, 0, -0.52);
+            const rightPupil = new THREE.Mesh(pupilGeo, blackMat);
+            rightPupil.position.set(0, 0, -0.25);
+            rightIris.add(rightPupil);
+            rightEye.add(rightIris);
+            sbGroup.add(rightEye);
+
+            // Nose
+            const noseGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.6, 16);
+            noseGeo.rotateX(Math.PI / 2);
+            const noseMesh = new THREE.Mesh(noseGeo, yellowMat);
+            noseMesh.position.set(0, 5.8, -1.8);
+            sbGroup.add(noseMesh);
+
+            // Mouth & Teeth
+            const mouthGeo = new THREE.BoxGeometry(2.4, 0.6, 0.05);
+            const mouthMesh = new THREE.Mesh(mouthGeo, mouthMat);
+            mouthMesh.position.set(0, 4.8, -1.12);
+
+            const toothGeo = new THREE.BoxGeometry(0.35, 0.45, 0.08);
+            const leftTooth = new THREE.Mesh(toothGeo, whiteMat);
+            leftTooth.position.set(-0.25, -0.3, -0.02);
+            const rightTooth = new THREE.Mesh(toothGeo, whiteMat);
+            rightTooth.position.set(0.25, -0.3, -0.02);
+
+            mouthMesh.add(leftTooth);
+            mouthMesh.add(rightTooth);
+            sbGroup.add(mouthMesh);
+
+            // Limbs
+            const legGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.8, 12);
+            legGeo.translate(0, -0.9, 0);
+
+            const shoeGeo = new THREE.BoxGeometry(0.65, 0.45, 1.1);
+            shoeGeo.translate(0, -0.2, -0.2);
+
+            const leftLegPivot = new THREE.Group();
+            leftLegPivot.position.set(-1.1, 1.4, 0);
+            const leftLegMesh = new THREE.Mesh(legGeo, yellowMat);
+            const leftShoe = new THREE.Mesh(shoeGeo, blackMat);
+            leftShoe.position.set(0, -1.7, 0);
+            leftLegMesh.add(leftShoe);
+            leftLegPivot.add(leftLegMesh);
+            sbGroup.add(leftLegPivot);
+
+            const rightLegPivot = new THREE.Group();
+            rightLegPivot.position.set(1.1, 1.4, 0);
+            const rightLegMesh = new THREE.Mesh(legGeo, yellowMat);
+            const rightShoe = new THREE.Mesh(shoeGeo, blackMat);
+            rightShoe.position.set(0, -1.7, 0);
+            rightLegMesh.add(rightShoe);
+            rightLegPivot.add(rightLegMesh);
+            sbGroup.add(rightLegPivot);
+
+            const armGeo = new THREE.CylinderGeometry(0.16, 0.16, 2.2, 12);
+            armGeo.translate(0, -1.1, 0);
+
+            const sleeveGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.6, 12);
+
+            const leftArmPivot = new THREE.Group();
+            leftArmPivot.position.set(-2.35, 4.8, 0);
+            const leftSleeve = new THREE.Mesh(sleeveGeo, whiteMat);
+            leftSleeve.position.set(0, -0.2, 0);
+            const leftArmMesh = new THREE.Mesh(armGeo, yellowMat);
+            leftArmPivot.add(leftSleeve);
+            leftArmPivot.add(leftArmMesh);
+            sbGroup.add(leftArmPivot);
+
+            const rightArmPivot = new THREE.Group();
+            rightArmPivot.position.set(2.35, 4.8, 0);
+            const rightSleeve = new THREE.Mesh(sleeveGeo, whiteMat);
+            rightSleeve.position.set(0, -0.2, 0);
+            const rightArmMesh = new THREE.Mesh(armGeo, yellowMat);
+            rightArmPivot.add(rightSleeve);
+            rightArmPivot.add(rightArmMesh);
+            sbGroup.add(rightArmPivot);
+
+            return {
+                group: sbGroup,
+                leftLeg: leftLegPivot,
+                rightLeg: rightLegPivot,
+                leftArm: leftArmPivot,
+                rightArm: rightArmPivot
+            };
+        }
+
+        let scene, camera, renderer, clock;
+        let groundMesh, speedParticles, particleGeo;
+        let playerModel, spongebobModel;
+        let cameraMode = 'THIRD_PERSON';
+        let isEliteHussing = false;
+
+        // SpongeBob Pursuit Physics State (with momentum turning inertia)
+        const spongebobState = {
+            pos: new THREE.Vector3(0, 0, -800),
+            vel: new THREE.Vector3(0, 0, 0),
+            rollAngle: 0,
+            animTime: 0
+        };
+
+        function initScene() {
+            const container = document.getElementById('game-canvas');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.FogExp2(0x87ceeb, 0.00002);
+
+            // Logarithmic depth buffer to eliminate floating precision jitter
+            renderer = new THREE.WebGLRenderer({
+                canvas: container,
+                antialias: true,
+                logarithmicDepthBuffer: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Camera near set to 1.0 to guarantee depth precision
+            camera = new THREE.PerspectiveCamera(CONFIG.BASE_FOV, window.innerWidth / window.innerHeight, 1.0, 300000);
+            clock = new THREE.Clock();
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.85);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xfffaed, 1.25);
+            sun.position.set(1200, 2500, 800);
+            scene.add(sun);
+
+            // Infinite Snapping Ground Plane
+            const groundGeo = new THREE.PlaneGeometry(CONFIG.GROUND_DIM, CONFIG.GROUND_DIM);
+            const groundTex = createGridTexture();
+            groundTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            const groundMat = new THREE.MeshStandardMaterial({
+                map: groundTex,
+                roughness: 0.85,
+                metalness: 0.05
+            });
+
+            groundMesh = new THREE.Mesh(groundGeo, groundMat);
+            groundMesh.rotation.x = -Math.PI / 2;
+            scene.add(groundMesh);
+
+            playerModel = createRobloxPlayer();
+            scene.add(playerModel.group);
+
+            spongebobModel = createSpongeBobChaser();
+            scene.add(spongebobModel.group);
+
+            createMonuments();
+            createSpeedParticles();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createMonuments() {
+            const group = new THREE.Group();
+            const pillarGeo = new THREE.BoxGeometry(70, 500, 70);
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+            const ringGeo = new THREE.TorusGeometry(100, 8, 16, 48);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+
+            for (let i = 0; i < 450; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 600 + Math.random() * 85000;
+                const x = Math.cos(angle) * dist;
+                const z = Math.sin(angle) * dist;
+
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                pillar.position.set(x, 250, z);
+                group.add(pillar);
+
+                if (i % 5 === 0) {
+                    const ring = new THREE.Mesh(ringGeo, ringMat);
+                    ring.position.set(x, 120, z);
+                    ring.rotation.x = Math.PI / 2;
+                    group.add(ring);
+                }
+            }
+            scene.add(group);
+        }
+
+        function createSpeedParticles() {
+            const count = CONFIG.PARTICLE_COUNT;
+            particleGeo = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                particlePositions[i * 3] = (Math.random() - 0.5) * 350;
+                particlePositions[i * 3 + 1] = Math.random() * 140;
+                particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 450;
+            }
+
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 32; pCanvas.height = 32;
+            const pCtx = pCanvas.getContext('2d');
+            const grad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            pCtx.fillStyle = grad;
+            pCtx.fillRect(0, 0, 32, 32);
+
+            const pTex = new THREE.CanvasTexture(pCanvas);
+            const pMat = new THREE.PointsMaterial({
+                size: 2.8,
+                map: pTex,
+                transparent: true,
+                opacity: 0.65,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+
+            speedParticles = new THREE.Points(particleGeo, pMat);
+            scene.add(speedParticles);
+        }
+
+        let pitch = 0;
+        let yaw = 0;
+        let mouseSens = 0.002;
+        let isLocked = false;
+
+        const keysPressed = {};
+        const playerPos = new THREE.Vector3(0, CONFIG.EYE_HEIGHT, 0);
+        const velocity = new THREE.Vector3();
+        let animTime = 0;
+
+        function updateCameraBadge() {
+            const badge = document.getElementById('camera-badge');
+            if (cameraMode === 'FIRST_PERSON') {
+                badge.innerText = '[F] CAM: 1ST PERSON';
+                badge.className = 'bg-rose-400/20 text-rose-300 border border-rose-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200';
+            } else {
+                badge.innerText = '[F] CAM: 3RD PERSON';
+                badge.className = 'bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 px-2.5 py-1 rounded-lg font-black uppercase transition-all duration-200';
+            }
+        }
+
+        function updateHussingBadge() {
+            const badge = document.getElementById('hussing-badge');
+            if (isEliteHussing) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function setupControls() {
+            const overlay = document.getElementById('overlay');
+            const sensSlider = document.getElementById('sens-slider');
+
+            sensSlider.addEventListener('input', (e) => {
+                mouseSens = parseFloat(e.target.value);
+            });
+
+            overlay.addEventListener('click', () => {
+                document.body.requestPointerLock();
+                audioFX.init();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                isLocked = (document.pointerLockElement === document.body);
+                if (isLocked) {
+                    overlay.style.opacity = '0';
+                    overlay.style.visibility = 'hidden';
+                } else {
+                    overlay.style.opacity = '1';
+                    overlay.style.visibility = 'visible';
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isLocked) return;
+
+                yaw -= e.movementX * mouseSens;
+                pitch -= e.movementY * mouseSens;
+                pitch = Math.max(-1.55, Math.min(1.55, pitch));
+            });
+
+            window.addEventListener('keydown', (e) => {
+                keysPressed[e.code] = true;
+                if (e.code === 'KeyF') {
+                    cameraMode = (cameraMode === 'FIRST_PERSON') ? 'THIRD_PERSON' : 'FIRST_PERSON';
+                    updateCameraBadge();
+                }
+                if (e.code === 'KeyN') {
+                    isEliteHussing = !isEliteHussing;
+                    updateHussingBadge();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keysPressed[e.code] = false;
+            });
+        }
+
+        function updateSpongeBobPhysics(dt, currentPlayerSpeed) {
+            const sb = spongebobState;
+
+            // Direct line-of-sight vector straight to player position
+            const targetVector = new THREE.Vector3().subVectors(playerPos, sb.pos);
+            targetVector.y = 0; // Lock to horizontal ground plane
+            const distanceToPlayer = targetVector.length();
+
+            // Endless Chase Teleport if player runs > 25,000 units away
+            if (distanceToPlayer > 25000) {
+                const playerHeading = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                sb.pos.copy(playerPos).addScaledVector(playerHeading, 1200);
+                sb.pos.x += (Math.random() - 0.5) * 600;
+                sb.pos.z += (Math.random() - 0.5) * 600;
+                sb.vel.set(0, 0, 0);
+            }
+
+            // Calibrated speed: EXACTLY 100.01% of the player's current speed (1.0001x)
+            const effectivePlayerSpeed = Math.max(100.0, currentPlayerSpeed);
+            const currentSpongebobSpeed = effectivePlayerSpeed * 1.0001;
+
+            const chaserStatusEl = document.getElementById('chaser-status');
+
+            if (distanceToPlayer > 0.001) {
+                const targetDirection = targetVector.clone().normalize();
+                const desiredVelocity = targetDirection.clone().multiplyScalar(currentSpongebobSpeed);
+
+                // Inertia & Sharp-Turn Angle Detection
+                let turnInertiaFactor = 16.0; // Default high responsiveness for straight lines
+                let sideSkid = 0.0;
+                let alignment = 1.0;
+
+                if (sb.vel.lengthSq() > 10.0) {
+                    const currentVelDir = sb.vel.clone().normalize();
+                    
+                    // Dot product measures directional alignment (-1 to 1)
+                    alignment = Math.max(-1.0, Math.min(1.0, currentVelDir.dot(targetDirection)));
+                    
+                    // Cross product (y-component) measures sideways skid direction
+                    sideSkid = currentVelDir.cross(targetDirection).y;
+
+                    // Sharp turn detection (alignment < 0.707 corresponds to > 45° direction change)
+                    if (alignment < 0.707) {
+                        // Smoothly map low alignment to low inertia responsiveness (low traction slide)
+                        const turnSeverity = (0.707 - alignment) / 1.707; // 0.0 to 1.0
+                        turnInertiaFactor = THREE.MathUtils.lerp(12.0, 1.8, turnSeverity);
+                    }
+                }
+
+                // Momentum Lerp: Gradually blend current velocity towards target direction
+                sb.vel.lerp(desiredVelocity, turnInertiaFactor * dt);
+
+                // Smooth deceleration in close proximity (< 25 units) to prevent overshooting close stop
+                if (distanceToPlayer < 25) {
+                    const closeDecel = Math.max(0, distanceToPlayer / 25);
+                    sb.vel.multiplyScalar(closeDecel);
+                }
+
+                // SpongeBob faces in the direction of his ACTUAL velocity (showing momentum vector heading)
+                if (sb.vel.lengthSq() > 1.0) {
+                    const headingDir = sb.vel.clone().normalize();
+                    spongebobModel.group.rotation.y = Math.atan2(-headingDir.x, -headingDir.z);
+                }
+
+                // Visual Skid Tilt: Apply roll tilt during sharp slides based on sideways skid force
+                const targetRoll = -sideSkid * 0.85; // Roll sideways off balance during skids
+                sb.rollAngle = THREE.MathUtils.lerp(sb.rollAngle, targetRoll, dt * 10.0);
+                spongebobModel.group.rotation.z = sb.rollAngle;
+
+                // Dynamic UI HUD Chaser Status Badge update
+                if (chaserStatusEl) {
+                    if (alignment < 0.6) {
+                        chaserStatusEl.innerText = 'CHASER: SKIDDING / DRIFTING!';
+                        chaserStatusEl.className = 'bg-amber-500/30 text-amber-300 border border-amber-500/50 px-2.5 py-1 rounded-lg font-black uppercase animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.5)]';
+                    } else {
+                        chaserStatusEl.innerText = 'CHASER: PURSUING';
+                        chaserStatusEl.className = 'bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg font-black uppercase';
+                    }
+                }
+
+            } else {
+                sb.vel.set(0, 0, 0);
+                sb.rollAngle = THREE.MathUtils.lerp(sb.rollAngle, 0, dt * 8.0);
+                spongebobModel.group.rotation.z = sb.rollAngle;
+            }
+
+            // Update position directly via integrated velocity
+            sb.pos.x += sb.vel.x * dt;
+            sb.pos.z += sb.vel.z * dt;
+
+            spongebobModel.group.position.set(sb.pos.x, 0, sb.pos.z);
+
+            // Flailing running animations for SpongeBob
+            const actualSbSpeed = sb.vel.length();
+            if (actualSbSpeed > 10) {
+                sb.animTime += dt * 28;
+                const swing = Math.sin(sb.animTime) * 1.2;
+                spongebobModel.leftLeg.rotation.x = swing;
+                spongebobModel.rightLeg.rotation.x = -swing;
+                spongebobModel.leftArm.rotation.x = -swing * 1.3;
+                spongebobModel.rightArm.rotation.x = swing * 1.3;
+            } else {
+                spongebobModel.leftLeg.rotation.x *= Math.exp(-12 * dt);
+                spongebobModel.rightLeg.rotation.x *= Math.exp(-12 * dt);
+                spongebobModel.leftArm.rotation.x *= Math.exp(-12 * dt);
+                spongebobModel.rightArm.rotation.x *= Math.exp(-12 * dt);
+            }
+
+            // Red Proximity Vignette HUD Overlay Update
+            const vignette = document.getElementById('red-vignette');
+            if (distanceToPlayer < 750) {
+                const norm = 1 - (distanceToPlayer / 750);
+                const pulse = Math.sin(clock.getElapsedTime() * 18) * 0.1 * norm;
+                const opacity = Math.min(0.85, Math.pow(norm, 1.2) * 0.8 + pulse);
+                vignette.style.opacity = opacity.toFixed(2);
+            } else {
+                vignette.style.opacity = '0';
+            }
+
+            audioFX.updateChaserProximity(distanceToPlayer, dt);
+        }
+
+        function updatePhysicsAndAnimation(delta) {
+            const dt = Math.min(delta, 0.08);
+
+            const isSprinting = !!keysPressed['ShiftLeft'];
+            let targetSpeed = isSprinting ? CONFIG.SPRINT_SPEED : CONFIG.BASE_SPEED;
+
+            // Elite Hussing Mode 500% Velocity Multiplier (5x)
+            if (isEliteHussing) {
+                targetSpeed *= 5.0;
+            }
+
+            const moveDir = new THREE.Vector3();
+            if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveDir.z -= 1;
+            if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveDir.z += 1;
+            if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) moveDir.x -= 1;
+            if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveDir.x += 1;
+
+            moveDir.normalize();
+
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+            const accelVec = new THREE.Vector3()
+                .addScaledVector(forward, -moveDir.z)
+                .addScaledVector(right, moveDir.x);
+
+            if (accelVec.lengthSq() > 0) {
+                accelVec.normalize();
+                velocity.x += accelVec.x * targetSpeed * CONFIG.ACCEL * dt;
+                velocity.z += accelVec.z * targetSpeed * CONFIG.ACCEL * dt;
+            }
+
+            const damp = Math.exp(-CONFIG.FRICTION * dt);
+            velocity.x *= damp;
+            velocity.z *= damp;
+
+            const isOnGround = (playerPos.y <= CONFIG.EYE_HEIGHT + 0.05);
+
+            if (isOnGround) {
+                velocity.y = 0;
+                playerPos.y = CONFIG.EYE_HEIGHT;
+
+                if (keysPressed['Space']) {
+                    velocity.y = CONFIG.JUMP_FORCE;
+                    audioFX.playJumpSound();
+                }
+            } else {
+                velocity.y -= CONFIG.GRAVITY * dt;
+            }
+
+            playerPos.x += velocity.x * dt;
+            playerPos.y += velocity.y * dt;
+            playerPos.z += velocity.z * dt;
+
+            if (playerPos.y < CONFIG.EYE_HEIGHT) {
+                playerPos.y = CONFIG.EYE_HEIGHT;
+                velocity.y = 0;
+            }
+
+            // Snapping Endless Ground Plane under player
+            groundMesh.position.x = Math.floor(playerPos.x / CONFIG.TILE_SIZE) * CONFIG.TILE_SIZE;
+            groundMesh.position.z = Math.floor(playerPos.z / CONFIG.TILE_SIZE) * CONFIG.TILE_SIZE;
+
+            playerModel.group.position.set(playerPos.x, playerPos.y - CONFIG.EYE_HEIGHT, playerPos.z);
+            playerModel.group.rotation.y = yaw;
+
+            const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+            const maxRefSpeed = CONFIG.SPRINT_SPEED * (isEliteHussing ? 5.0 : 1.0);
+            const speedRatio = Math.min(1.0, horizontalSpeed / maxRefSpeed);
+
+            // Roblox character running animation with hyper-frantic limb scaling during Elite Hussing
+            if (horizontalSpeed > 15) {
+                const animMultiplier = isEliteHussing ? 2.6 : 1.0;
+                const animSpeed = (14 + speedRatio * 34) * animMultiplier;
+                animTime += dt * animSpeed;
+
+                const maxSwing = Math.min(2.2, (0.45 + speedRatio * 1.1) * (isEliteHussing ? 1.45 : 1.0));
+                const swing = Math.sin(animTime) * maxSwing;
+
+                playerModel.leftArm.rotation.x = swing;
+                playerModel.rightArm.rotation.x = -swing;
+                playerModel.leftLeg.rotation.x = -swing;
+                playerModel.rightLeg.rotation.x = swing;
+
+                playerModel.torso.rotation.x = speedRatio * 0.45;
+                playerModel.torso.rotation.z = Math.sin(animTime * 0.5) * (isEliteHussing ? 0.22 : 0.12);
+
+                playerModel.head.rotation.z = Math.cos(animTime * 0.5) * (isEliteHussing ? 0.22 : 0.12);
+                playerModel.head.position.y = 1.6 + Math.abs(Math.sin(animTime * 2)) * (isEliteHussing ? 0.32 : 0.18);
+            } else {
+                playerModel.leftArm.rotation.x *= Math.exp(-12 * dt);
+                playerModel.rightArm.rotation.x *= Math.exp(-12 * dt);
+                playerModel.leftLeg.rotation.x *= Math.exp(-12 * dt);
+                playerModel.rightLeg.rotation.x *= Math.exp(-12 * dt);
+
+                playerModel.torso.rotation.x *= Math.exp(-12 * dt);
+                playerModel.torso.rotation.z *= Math.exp(-12 * dt);
+                playerModel.head.rotation.z *= Math.exp(-12 * dt);
+
+                playerModel.head.position.y = 1.6 + Math.sin(clock.getElapsedTime() * 3) * 0.04;
+            }
+
+            camera.rotation.order = 'YXZ';
+            camera.rotation.set(pitch, yaw, 0);
+
+            if (cameraMode === 'FIRST_PERSON') {
+                playerModel.group.visible = false;
+                camera.position.copy(playerPos);
+            } else {
+                playerModel.group.visible = true;
+                const offset = new THREE.Vector3(0, 2.8, 18);
+                offset.applyEuler(camera.rotation);
+                camera.position.copy(playerPos).add(offset);
+            }
+
+            // Dynamic Speed FOV Stretching
+            const targetFOV = CONFIG.BASE_FOV + (Math.min(1.0, horizontalSpeed / CONFIG.SPRINT_SPEED) * (CONFIG.MAX_FOV - CONFIG.BASE_FOV));
+            camera.fov += (targetFOV - camera.fov) * 0.12;
+            camera.updateProjectionMatrix();
+
+            // Particle Streaks update
+            if (speedParticles) {
+                speedParticles.position.copy(camera.position);
+
+                const positions = particleGeo.attributes.position.array;
+                const partSpeedFactor = isEliteHussing ? 0.025 : 0.08;
+                for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+                    const idx = i * 3;
+
+                    positions[idx] -= velocity.x * dt * partSpeedFactor;
+                    positions[idx + 1] -= velocity.y * dt * partSpeedFactor;
+                    positions[idx + 2] -= velocity.z * dt * partSpeedFactor;
+
+                    if (Math.abs(positions[idx]) > 175) positions[idx] = (Math.random() - 0.5) * 350;
+                    if (positions[idx + 1] < -10 || positions[idx + 1] > 130) positions[idx + 1] = Math.random() * 140;
+                    if (Math.abs(positions[idx + 2]) > 225) positions[idx + 2] = (Math.random() - 0.5) * 450;
+                }
+                particleGeo.attributes.position.needsUpdate = true;
+            }
+
+            audioFX.updateWind(horizontalSpeed / CONFIG.SPRINT_SPEED);
+
+            // Update SpongeBob Chaser Pursuit Physics (with momentum turning drift active)
+            updateSpongeBobPhysics(dt, horizontalSpeed);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            updatePhysicsAndAnimation(delta);
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            initScene();
+            setupControls();
+            animate();
+        };
+    </script>
+</body>
+</html>
