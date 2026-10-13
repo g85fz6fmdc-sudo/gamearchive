@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tab</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Dynamic Google Fonts Link Tag -->
+    <link id="google-font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --accent-color: #38bdf8;
+            --card-bg: #1e293b;
+            --btn-bg: #22c55e;
+            --btn-text: #ffffff;
+            --card-border: rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.25s ease, color 0.25s ease;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Top Left Plain Text Badge Changelog */
+        .changelog {
+            position: absolute;
+            top: 16px;
+            left: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.8;
+            color: var(--text-color);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Top Right Settings Gear Button */
+        .settings-btn {
+            position: absolute;
+            top: 14px;
+            right: 20px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+            padding: 9px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-btn:hover {
+            transform: rotate(45deg);
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--accent-color);
+        }
+
+        /* Dynamic Theme Styled Cards & Headers */
+        .theme-accent-text {
+            color: var(--accent-color);
+        }
+
+        .theme-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .theme-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Green Play Button Pill */
+        .play-btn-pill {
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+
+        .game-card:hover .play-btn-pill {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Settings Drawer Slide-Out Animation */
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .settings-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .settings-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            z-index: 50;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-drawer.open {
+            right: 0;
+        }
+
+        .color-picker-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .color-picker-input {
+            -webkit-appearance: none;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .color-picker-input::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .color-picker-input::-webkit-color-swatch {
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+
+        /* Custom Scrollbar for Drawer */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Plain Text Changelog in Top Left Corner -->
+    <div class="changelog">More games coming soon</div>
+
+    <!-- Settings Gear Toggle Button in Top Right Corner -->
+    <button id="open-settings" class="settings-btn" title="Open Settings" aria-label="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    </button>
+
+    <!-- Main Container -->
+    <main class="container mx-auto px-4 py-16 max-w-6xl">
+        <!-- Title Header -->
+        <header class="text-center mb-10">
+            <h1 class="theme-accent-text text-4xl sm:text-5xl font-extrabold tracking-tight mb-2">Game Hub</h1>
+            <p class="text-sm sm:text-base opacity-75">Select a game to start playing</p>
+        </header>
+
+        <!-- Search Input Filter -->
+        <div class="max-w-md mx-auto mb-10 relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none opacity-50">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Search games..." 
+                class="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 transition"
+                style="background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--card-border);"
+            >
+        </div>
+
+        <!-- Preserved 18 Game Cards with Titles and Green Play Buttons ONLY -->
+        <div id="game-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+            
+            <a href="bipedal_deer_arena_hack_and_slash.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Bipedal Deer Arena</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clEaglercraftL_19_v0_7_0_Offline_Signed.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Minecraft 1.9</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clFNAF.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Five Nights at Freddy's</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clFNAF2.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Five Nights at Freddy's 2</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clFNAF3.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Five Nights at Freddy's 3</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clFNAF4.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Five Nights at Freddy's 4</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clfnafucn.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">FNAF: Ultimate Custom Night</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clstickmanhook.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Stickman Hook</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="lemon_leap_remastered.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Lemon Leap Remastered</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="pineapple_run_3d.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Pineapple Run 3D</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="clsandboxels.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Sandboxels</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="Flight_sim.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Flight Simulator</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="boring_clicker.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Boring Clicker</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="huss_valley.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Huss Valley</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="terraria.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Terraria</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="2dminecraft.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Paper Minecraft</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="bad piggies/badpiggies.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Bad Piggies</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+            <a href="crossy road/crossyroad.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
+                <span class="font-bold text-lg leading-snug pr-3">Crossy Road</span>
+                <span class="play-btn-pill">Play &#9654;</span>
+            </a>
+
+        </div>
+
+        <!-- No Results Message -->
+        <div id="no-results" class="hidden text-center py-12">
+            <p class="text-lg opacity-70">No games found matching your search.</p>
+        </div>
+    </main>
+
+    <!-- Settings Drawer Overlay Backdrop -->
+    <div id="settings-backdrop" class="settings-overlay"></div>
+
+    <!-- Settings Slide-out Drawer Panel -->
+    <aside id="settings-panel" class="settings-drawer">
+        <div class="p-6 border-b flex justify-between items-center" style="border-color: var(--card-border);">
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <svg class="w-5 h-5 theme-accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                </svg>
+                Appearance Settings
+            </h2>
+            <button id="close-settings" class="p-2 rounded-lg opacity-70 hover:opacity-100 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+            <!-- Preset Themes -->
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Preset Themes</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button data-preset="defaultDark" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Default Dark</button>
+                    <button data-preset="cyber" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-zinc-700 bg-zinc-950 text-emerald-400 hover:border-emerald-400 transition">Cyber Neon</button>
+                    <button data-preset="emerald" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-emerald-800 bg-emerald-950 text-emerald-200 hover:border-emerald-400 transition">Emerald</button>
+                    <button data-preset="retro" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-amber-800 bg-neutral-900 text-amber-400 hover:border-amber-400 transition">Retro Arcade</button>
+                    <button data-preset="matrix" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-green-900 bg-black text-green-400 hover:border-green-400 transition">Matrix</button>
+                    <button data-preset="catppuccin" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-indigo-900 bg-slate-900 text-indigo-300 hover:border-indigo-400 transition">Catppuccin</button>
+                    <button data-preset="light" class="preset-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-900 hover:border-sky-600 transition">Light Mode</button>
+                </div>
+            </div>
+
+            <!-- Color Customization Inputs -->
+            <div class="space-y-3">
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-70">Colors</label>
+                
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Background Color</span>
+                    <input type="color" id="bg-color-picker" class="color-picker-input" value="#0f172a">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Text Color</span>
+                    <input type="color" id="text-color-picker" class="color-picker-input" value="#f8fafc">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Title / Accent Color</span>
+                    <input type="color" id="accent-color-picker" class="color-picker-input" value="#38bdf8">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Card Background</span>
+                    <input type="color" id="card-color-picker" class="color-picker-input" value="#1e293b">
+                </div>
+
+                <!-- Custom Green Play Button Color Controls -->
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Play Button Color</span>
+                    <input type="color" id="btn-bg-picker" class="color-picker-input" value="#22c55e">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Play Button Text Color</span>
+                    <input type="color" id="btn-text-picker" class="color-picker-input" value="#ffffff">
+                </div>
+            </div>
+
+            <!-- Custom Cursors -->
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Custom Cursors</label>
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button data-cursor="default" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Default</button>
+                    <button data-cursor="cur01.png" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Cursor 1</button>
+                    <button data-cursor="cur02.png" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Cursor 2</button>
+                    <button data-cursor="cur03.png" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Cursor 3</button>
+                    <button data-cursor="cur04.png" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Cursor 4</button>
+                    <button data-cursor="cur05.png" class="cursor-btn px-2.5 py-2 text-xs font-semibold rounded-lg border border-slate-700 bg-slate-900 text-slate-100 hover:border-sky-400 transition">Cursor 5</button>
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-medium opacity-70">Upload Custom PNG</label>
+                    <input type="file" id="custom-cursor-upload" accept="image/png" class="w-full text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer border border-slate-700 rounded-lg bg-slate-900" style="background-color: rgba(0, 0, 0, 0.2); border-color: var(--card-border);">
+                </div>
+            </div>
+
+            <!-- Font Selection Menu with 30+ Fonts -->
+            <div>
+                <label for="font-select" class="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">Font Selection</label>
+                <select id="font-select" class="w-full p-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm" style="background-color: rgba(0, 0, 0, 0.2); color: var(--text-color); border-color: var(--card-border);">
+                    <optgroup label="Modern Sans-Serif">
+                        <option value="Inter" selected>Inter</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Poppins">Poppins</option>
+                        <option value="Open Sans">Open Sans</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Lato">Lato</option>
+                        <option value="Nunito">Nunito</option>
+                        <option value="Rubik">Rubik</option>
+                        <option value="Ubuntu">Ubuntu</option>
+                        <option value="Oswald">Oswald</option>
+                        <option value="Raleway">Raleway</option>
+                    </optgroup>
+                    <optgroup label="Retro & Gaming Pixels">
+                        <option value="Press Start 2P">Press Start 2P</option>
+                        <option value="Silkscreen">Silkscreen</option>
+                        <option value="VT323">VT323</option>
+                        <option value="Monospace">Monospace (System)</option>
+                    </optgroup>
+                    <optgroup label="Sci-Fi & Futuristic">
+                        <option value="Orbitron">Orbitron</option>
+                        <option value="Exo 2">Exo 2</option>
+                        <option value="Rajdhani">Rajdhani</option>
+                        <option value="Syne">Syne</option>
+                    </optgroup>
+                    <optgroup label="Display, Fun & Bold">
+                        <option value="Bungee">Bungee</option>
+                        <option value="Bangers">Bangers</option>
+                        <option value="Pacifico">Pacifico</option>
+                        <option value="Comic Neue">Comic Neue</option>
+                        <option value="Permanent Marker">Permanent Marker</option>
+                        <option value="Creepster">Creepster</option>
+                        <option value="Anton">Anton</option>
+                    </optgroup>
+                    <optgroup label="Serif">
+                        <option value="Lora">Lora</option>
+                        <option value="Merriweather">Merriweather</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                    </optgroup>
+                    <optgroup label="Monospace & Code">
+                        <option value="Fira Code">Fira Code</option>
+                        <option value="JetBrains Mono">JetBrains Mono</option>
+                        <option value="Courier New">Courier New (System)</option>
+                    </optgroup>
+                </select>
+            </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="p-6 border-t flex gap-3" style="border-color: var(--card-border);">
+            <button id="reset-defaults" class="w-full py-2.5 rounded-lg text-sm font-semibold opacity-80 hover:opacity-100 transition border" style="border-color: var(--card-border);">
+                Reset Defaults
+            </button>
+        </div>
+    </aside>
+
+    <!-- Embedded Game Modal Viewport -->
+    <div id="game-modal" class="fixed inset-0 bg-black hidden z-50 flex flex-col">
+        <div class="p-3 flex justify-between items-center border-b" style="background-color: var(--card-bg); border-color: var(--card-border);">
+            <span id="game-modal-title" class="font-bold text-lg px-2">Playing Game</span>
+            <button id="close-game" class="px-4 py-1.5 rounded-lg font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition">
+                Close Game ✕
+            </button>
+        </div>
+        <iframe id="game-frame" class="w-full h-full border-0 flex-1" src="about:blank"></iframe>
+    </div>
+
+    <script>
+        const PRESETS = {
+            defaultDark: { bg: '#0f172a', text: '#f8fafc', accent: '#38bdf8', card: '#1e293b', btnBg: '#22c55e', btnText: '#ffffff' },
+            cyber: { bg: '#09090b', text: '#f4f4f5', accent: '#00ffcc', card: '#18181b', btnBg: '#00ffcc', btnText: '#000000' },
+            emerald: { bg: '#064e3b', text: '#ecfdf5', accent: '#34d399', card: '#022c22', btnBg: '#10b981', btnText: '#ffffff' },
+            retro: { bg: '#171717', text: '#fef08a', accent: '#f59e0b', card: '#262626', btnBg: '#ef4444', btnText: '#ffffff' },
+            matrix: { bg: '#050d08', text: '#00ff66', accent: '#00ff66', card: '#0a1c10', btnBg: '#00ff66', btnText: '#000000' },
+            catppuccin: { bg: '#1e1e2e', text: '#cdd6f4', accent: '#cba6f7', card: '#313244', btnBg: '#a6e3a1', btnText: '#11111b' },
+            light: { bg: '#f8fafc', text: '#0f172a', accent: '#0284c7', card: '#ffffff', btnBg: '#16a34a', btnText: '#ffffff' }
+        };
+
+        const DEFAULT_SETTINGS = {
+            bgColor: '#0f172a',
+            textColor: '#f8fafc',
+            accentColor: '#38bdf8',
+            cardBg: '#1e293b',
+            btnBg: '#22c55e',
+            btnText: '#ffffff',
+            fontFamily: 'Inter'
+        };
+
+        // DOM Element Handles
+        const openSettingsBtn = document.getElementById('open-settings');
+        const closeSettingsBtn = document.getElementById('close-settings');
+        const settingsPanel = document.getElementById('settings-panel');
+        const settingsBackdrop = document.getElementById('settings-backdrop');
+
+        const bgColorPicker = document.getElementById('bg-color-picker');
+        const textColorPicker = document.getElementById('text-color-picker');
+        const accentColorPicker = document.getElementById('accent-color-picker');
+        const cardColorPicker = document.getElementById('card-color-picker');
+        const btnBgPicker = document.getElementById('btn-bg-picker');
+        const btnTextPicker = document.getElementById('btn-text-picker');
+        const fontSelect = document.getElementById('font-select');
+        const resetBtn = document.getElementById('reset-defaults');
+        const searchInput = document.getElementById('search-input');
+        const gameCards = document.querySelectorAll('.game-card');
+        const noResultsMsg = document.getElementById('no-results');
+
+        // Cursor DOM Elements
+        const cursorUpload = document.getElementById('custom-cursor-upload');
+        const cursorBtns = document.querySelectorAll('.cursor-btn');
+
+        // Game Modal Handles
+        const gameModal = document.getElementById('game-modal');
+        const gameFrame = document.getElementById('game-frame');
+        const gameModalTitle = document.getElementById('game-modal-title');
+        const closeGameBtn = document.getElementById('close-game');
+
+        function applySettings(settings) {
+            document.documentElement.style.setProperty('--bg-color', settings.bgColor);
+            document.documentElement.style.setProperty('--text-color', settings.textColor);
+            document.documentElement.style.setProperty('--accent-color', settings.accentColor);
+            document.documentElement.style.setProperty('--card-bg', settings.cardBg);
+            document.documentElement.style.setProperty('--btn-bg', settings.btnBg);
+            document.documentElement.style.setProperty('--btn-text', settings.btnText);
+
+            // Synchronize Input Fields
+            bgColorPicker.value = settings.bgColor;
+            textColorPicker.value = settings.textColor;
+            accentColorPicker.value = settings.accentColor;
+            cardColorPicker.value = settings.cardBg;
+            btnBgPicker.value = settings.btnBg;
+            btnTextPicker.value = settings.btnText;
+            fontSelect.value = settings.fontFamily;
+
+            // Load Font Dynamically
+            loadFont(settings.fontFamily);
+
+            // Store in LocalStorage
+            localStorage.setItem('gamehub_theme_settings', JSON.stringify(settings));
+        }
+
+        function loadFont(fontName) {
+            if (!fontName || fontName === 'Monospace' || fontName === 'Courier New') {
+                document.body.style.fontFamily = fontName || 'Inter, sans-serif';
+                return;
+            }
+
+            const fontLinkId = 'google-font-link';
+            let linkTag = document.getElementById(fontLinkId);
+            if (!linkTag) {
+                linkTag = document.createElement('link');
+                linkTag.id = fontLinkId;
+                linkTag.rel = 'stylesheet';
+                document.head.appendChild(linkTag);
+            }
+
+            const formattedFont = fontName.replace(/ /g, '+');
+            linkTag.href = `https://fonts.googleapis.com/css2?family=${formattedFont}:wght@400;500;600;700;800&display=swap`;
+            document.body.style.fontFamily = `'${fontName}', sans-serif`;
+        }
+
+        // Custom Cursor Logic Function
+        function applyCursor(cursorUrl) {
+            let styleTag = document.getElementById('dynamic-cursor-style');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'dynamic-cursor-style';
+                document.head.appendChild(styleTag);
+            }
+            if (cursorUrl === 'default' || !cursorUrl) {
+                styleTag.innerHTML = '';
+                localStorage.removeItem('gamehub_custom_cursor');
+            } else {
+                // Using 0 0 hotspot so the click registers at the very top left corner of the image
+                styleTag.innerHTML = `* { cursor: url('${cursorUrl}') 0 0, auto !important; }`;
+                localStorage.setItem('gamehub_custom_cursor', cursorUrl);
+            }
+        }
+
+        function getCurrentSettings() {
+            return {
+                bgColor: bgColorPicker.value,
+                textColor: textColorPicker.value,
+                accentColor: accentColorPicker.value,
+                cardBg: cardColorPicker.value,
+                btnBg: btnBgPicker.value,
+                btnText: btnTextPicker.value,
+                fontFamily: fontSelect.value
+            };
+        }
+
+        function initSettings() {
+            const saved = localStorage.getItem('gamehub_theme_settings');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    applySettings({ ...DEFAULT_SETTINGS, ...parsed });
+                } catch (e) {
+                    applySettings(DEFAULT_SETTINGS);
+                }
+            } else {
+                applySettings(DEFAULT_SETTINGS);
+            }
+
+            // Restore Saved Cursor
+            const savedCursor = localStorage.getItem('gamehub_custom_cursor');
+            if (savedCursor) {
+                applyCursor(savedCursor);
+            }
+        }
+
+        function openSettings() {
+            settingsPanel.classList.add('open');
+            settingsBackdrop.classList.add('active');
+        }
+
+        function closeSettings() {
+            settingsPanel.classList.remove('open');
+            settingsBackdrop.classList.remove('active');
+        }
+
+        openSettingsBtn.addEventListener('click', openSettings);
+        closeSettingsBtn.addEventListener('click', closeSettings);
+        settingsBackdrop.addEventListener('click', closeSettings);
+
+        // Color Inputs
+        [bgColorPicker, textColorPicker, accentColorPicker, cardColorPicker, btnBgPicker, btnTextPicker].forEach(picker => {
+            picker.addEventListener('input', () => {
+                applySettings(getCurrentSettings());
+            });
+        });
+
+        // Font Selection
+        fontSelect.addEventListener('change', () => {
+            applySettings(getCurrentSettings());
+        });
+
+        // Cursor Button Listeners
+        cursorBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyCursor(btn.getAttribute('data-cursor'));
+            });
+        });
+
+        // Cursor PNG File Upload Reader
+        cursorUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type === 'image/png') {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    applyCursor(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Preset Buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const presetKey = btn.getAttribute('data-preset');
+                if (PRESETS[presetKey]) {
+                    const p = PRESETS[presetKey];
+                    const current = getCurrentSettings();
+                    applySettings({
+                        ...current,
+                        bgColor: p.bg,
+                        textColor: p.text,
+                        accentColor: p.accent,
+                        cardBg: p.card,
+                        btnBg: p.btnBg,
+                        btnText: p.btnText
+                    });
+                }
+            });
+        });
+
+        // Reset Defaults (Including Cursors)
+        resetBtn.addEventListener('click', () => {
+            applySettings(DEFAULT_SETTINGS);
+            applyCursor('default');
+            cursorUpload.value = '';
+        });
+
+        // Live Title Search Filtering
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            gameCards.forEach(card => {
+                const titleText = card.querySelector('span.font-bold').textContent.toLowerCase();
+                if (titleText.includes(query)) {
+                    card.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            if (visibleCount === 0) {
+                noResultsMsg.classList.remove('hidden');
+            } else {
+                noResultsMsg.classList.add('hidden');
+            }
+        });
+
+        // Intercept Game Card Clicks to Open Inside Embedded Frame
+        gameCards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                const gameUrl = card.getAttribute('href');
+                const gameTitle = card.querySelector('span.font-bold').textContent;
+
+                gameModalTitle.textContent = gameTitle;
+                gameFrame.src = gameUrl;
+                gameModal.classList.remove('hidden');
+            });
+        });
+
+        // Close Game Viewport
+        closeGameBtn.addEventListener('click', () => {
+            gameModal.classList.add('hidden');
+            gameFrame.src = 'about:blank';
+        });
+
+        // Initialize Settings on DOM Ready
+        window.addEventListener('DOMContentLoaded', initSettings);
+    </script>
+</body>
+</html>
