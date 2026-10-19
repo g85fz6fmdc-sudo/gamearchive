@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Purple</title>
+    <!-- Tailwind CSS for UI Overlay -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a002c;
+            color: #e0b0ff;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Purple Style */
+        .purple-glass {
+            background: rgba(58, 12, 89, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(192, 132, 252, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(74, 14, 110, 0.4);
+        }
+
+        .purple-button {
+            background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+            border: 2px solid #e9d5ff;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .purple-button:hover:not(:disabled) {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(192, 132, 252, 0.6);
+            background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%);
+        }
+
+        .purple-button:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        .purple-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(60%);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(30, 0, 50, 0.5);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #a855f7;
+            border-radius: 10px;
+        }
+
+        /* Pulsing Glow Effect */
+        @keyframes purpleGlow {
+            0% { box-shadow: 0 0 10px #a855f7; }
+            50% { box-shadow: 0 0 25px #e9d5ff, 0 0 10px #7e22ce; }
+            100% { box-shadow: 0 0 10px #a855f7; }
+        }
+
+        .glow-active {
+            animation: purpleGlow 2s infinite;
+        }
+    </style>
+</head>
+<body class="select-none">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" class="relative z-10 w-full h-full pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+        
+        <!-- Top Bar: Currency & Stats -->
+        <div class="flex justify-between items-start w-full">
+            <!-- Purple Counter -->
+            <div class="pointer-events-auto purple-glass rounded-3xl px-6 py-3 flex items-center gap-4 border border-purple-400/40 glow-active">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-800 to-fuchsia-400 flex items-center justify-center shadow-lg text-2xl text-purple-100">
+                    <i class="fa-solid font-bold text-white">🪻</i>
+                </div>
+                <div>
+                    <div class="text-xs uppercase tracking-wider text-purple-300 font-bold">Purple Score</div>
+                    <div id="purple-count" class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide">0</div>
+                </div>
+            </div>
+
+            <!-- Controls Info & Settings -->
+            <div class="pointer-events-auto flex gap-3">
+                <button id="btn-audio" class="purple-glass w-12 h-12 rounded-2xl flex items-center justify-center text-purple-200 text-xl hover:text-white transition">
+                    <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+                </button>
+                <button id="btn-store" class="purple-button pointer-events-auto px-5 py-3 rounded-2xl text-white font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-store"></i>
+                    <span>Purple Store</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Prompt (Near Store / Hints) -->
+        <div id="interaction-prompt" class="self-center purple-glass px-6 py-3 rounded-full text-purple-100 text-center text-lg font-medium opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-3">
+            <span class="bg-purple-500/50 px-2.5 py-1 rounded-lg text-sm font-bold border border-purple-300/40">E</span>
+            <span>Open Purple Store</span>
+        </div>
+
+        <!-- Bottom Bar: Controls & Status -->
+        <div class="flex justify-between items-end w-full">
+            <!-- Controls Legend -->
+            <div class="hidden sm:flex flex-col gap-1 text-xs text-purple-300/80 purple-glass p-3 rounded-2xl pointer-events-auto">
+                <div><span class="font-bold text-purple-200">WASD / Arrows</span> : Walk through Purple</div>
+                <div><span class="font-bold text-purple-200">Mouse Drag</span> : Look around</div>
+                <div><span class="font-bold text-purple-200">Shift</span> : Run faster</div>
+                <div><span class="font-bold text-purple-200">Space</span> : Jump</div>
+            </div>
+
+            <!-- Mobile Virtual Joystick Touch Hint -->
+            <div id="mobile-touch-zone" class="sm:hidden pointer-events-auto text-xs text-purple-300/70 bg-purple-950/60 p-2 rounded-xl">
+                Swipe left side to Move | Swipe right side to Look
+            </div>
+
+            <!-- Purple Status Level -->
+            <div class="purple-glass px-4 py-2 rounded-2xl text-right">
+                <div class="text-xs text-purple-300 uppercase tracking-widest font-bold">Purpleness Stage</div>
+                <div id="purple-stage" class="text-lg font-bold text-fuchsia-300">Stage 1: Lavender Novice</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purple Store Modal -->
+    <div id="store-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-950/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="purple-glass w-full max-w-2xl max-h-[90vh] rounded-3xl p-6 flex flex-col justify-between border-2 border-purple-400/50 shadow-2xl relative overflow-hidden">
+            
+            <!-- Store Header -->
+            <div class="flex justify-between items-center pb-4 border-b border-purple-500/30">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl text-white shadow-lg">
+                        🔮
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-black text-white tracking-wide">THE PURPLE STORE</h2>
+                        <p class="text-xs text-purple-300">Spend Purple to become drastically Purplier!</p>
+                    </div>
+                </div>
+                <button id="btn-close-store" class="w-10 h-10 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 hover:text-white flex items-center justify-center text-xl transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Upgrade Items List -->
+            <div class="my-4 overflow-y-auto pr-2 space-y-3 max-h-[55vh]" id="upgrades-container">
+                <!-- Upgrades injected by JS -->
+            </div>
+
+            <!-- Store Footer -->
+            <div class="pt-3 border-t border-purple-500/30 flex justify-between items-center text-sm">
+                <div class="text-purple-300">
+                    Current Purple: <span id="store-purple-count" class="font-bold text-fuchsia-300 text-lg">0</span>
+                </div>
+                <button id="btn-close-store-2" class="purple-button px-6 py-2.5 rounded-xl font-bold text-white">
+                    Back to Purple Town
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Code -->
+    <script>
+        /* --- GAME ENGINE & VARIABLES --- */
+        let scene, camera, renderer;
+        let clock = new THREE.Clock();
+        
+        // Game State
+        const gameState = {
+            purple: 0,
+            purplenessStage: 1,
+            audioEnabled: true,
+            upgrades: {
+                speed: { level: 1, max: 10, baseCost: 15, costMult: 1.8, name: "Movement Speed", desc: "Walk significantly faster across the purple town", icon: "fa-person-running" },
+                magnet: { level: 0, max: 8, baseCost: 25, costMult: 2.2, name: "Purple Magnet", desc: "Attract distant floating purple gems automatically", icon: "fa-magnet" },
+                multiplier: { level: 1, max: 10, baseCost: 30, costMult: 2.5, name: "Purple Multiplier", desc: "Yield more Purple per collected gem", icon: "fa-bolt" },
+                aura: { level: 0, max: 5, baseCost: 60, costMult: 3.0, name: "Purple Aura", desc: "Emanate radiant pulsating purple light ring around you", icon: "fa-sun" },
+                trail: { level: 0, max: 5, baseCost: 100, costMult: 3.5, name: "Sparkle Trail", desc: "Leave behind shining purple particle magic wherever you step", icon: "fa-wand-magic-sparkles" },
+                ultimate: { level: 0, max: 1, baseCost: 1000, costMult: 1.0, name: "Ultimate Purpleness", desc: "Shift the world into pure concentrated violet atmosphere", icon: "fa-crown" }
+            }
+        };
+
+        // Entities
+        let player, playerBody, playerHead, leftLeg, rightLeg, leftArm, rightArm;
+        let npcs = [];
+        let purpleGems = [];
+        let purpleParticles = [];
+        let trailParticles = [];
+        let auraParticles;
+        let storeBuildingMesh;
+        
+        // Controls State
+        const keys = { w: false, a: false, s: false, d: false, Shift: false, Space: false };
+        let cameraAngleX = 0;
+        let cameraAngleY = 0.3;
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let playerVelocityY = 0;
+        let isGrounded = true;
+        
+        // Audio Synth Context
+        let audioCtx = null;
+
+        // Initialize Application
+        window.addEventListener('load', () => {
+            initScene();
+            initLights();
+            createPurpleTown();
+            createPlayer();
+            createNPCs(18);
+            spawnPurpleGems(45);
+            initAudio();
+            setupEvents();
+            renderUpgradesUI();
+            
+            // Hide loading, start loop
+            animate();
+        });
+
+        /* --- THREE.JS SCENE SETUP --- */
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            
+            // All-Purple Fog
+            scene.background = new THREE.Color(0x2d0b4d);
+            scene.fog = new THREE.FogExp2(0x320d57, 0.018);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+        }
+
+        /* --- LIGHTING (ALL PURPLE) --- */
+        function initLights() {
+            // Ambient soft purple light
+            const ambient = new THREE.AmbientLight(0x9d4edd, 0.7);
+            scene.add(ambient);
+
+            // Directional Purple Sunlight
+            const sunLight = new THREE.DirectionalLight(0xe0aaff, 0.9);
+            sunLight.position.set(60, 100, 40);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 250;
+            const d = 80;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Hemisphere light for deep violet ground contrast
+            const hemiLight = new THREE.HemisphereLight(0xc77dff, 0x240046, 0.5);
+            scene.add(hemiLight);
+        }
+
+        /* --- TOWN GENERATION (BUILDINGS, ROADS, TREES) --- */
+        function createPurpleTown() {
+            // Ground Grid
+            const groundSize = 250;
+            const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, 32, 32);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x240046, 
+                roughness: 0.8, 
+                metalness: 0.1 
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Main Central Plaza / Circle Road
+            const plazaGeo = new THREE.RingGeometry(0, 35, 32);
+            const plazaMat = new THREE.MeshStandardMaterial({ color: 0x3c096c, roughness: 0.5 });
+            const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+            plaza.rotation.x = -Math.PI / 2;
+            plaza.position.y = 0.02;
+            plaza.receiveShadow = true;
+            scene.add(plaza);
+
+            // Cross Roads
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x30004a, roughness: 0.6 });
+            
+            const road1 = new THREE.Mesh(new THREE.PlaneGeometry(20, groundSize), roadMat);
+            road1.rotation.x = -Math.PI / 2;
+            road1.position.y = 0.01;
+            road1.receiveShadow = true;
+            scene.add(road1);
+
+            const road2 = new THREE.Mesh(new THREE.PlaneGeometry(groundSize, 20), roadMat);
+            road2.rotation.x = -Math.PI / 2;
+            road2.position.y = 0.01;
+            road2.receiveShadow = true;
+            scene.add(road2);
+
+            // Decorative Purple Town Center Monument / Purple Store Building
+            createPurpleStoreBuilding();
+
+            // Generate Neighborhood Buildings
+            const buildingColors = [0x5a189a, 0x7b2cbf, 0x9d4edd, 0x3c096c, 0x4a1259, 0x6b117b];
+            
+            for (let x = -100; x <= 100; x += 30) {
+                for (let z = -100; z <= 100; z += 30) {
+                    // Skip center road corridors
+                    if (Math.abs(x) < 25 || Math.abs(z) < 25) continue;
+
+                    // Building Dimensions
+                    const width = 12 + Math.random() * 8;
+                    const height = 15 + Math.random() * 25;
+                    const depth = 12 + Math.random() * 8;
+                    const color = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+
+                    const bGeo = new THREE.BoxGeometry(width, height, depth);
+                    const bMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4 });
+                    const building = new THREE.Mesh(bGeo, bMat);
+
+                    building.position.set(x + (Math.random()*6 - 3), height / 2, z + (Math.random()*6 - 3));
+                    building.castShadow = true;
+                    building.receiveShadow = true;
+                    scene.add(building);
+
+                    // Add Glowing Purple Windows to Buildings
+                    const windowGeo = new THREE.PlaneGeometry(1.5, 2);
+                    const windowMat = new THREE.MeshBasicMaterial({ color: 0xe0aaff });
+                    
+                    for (let wy = 4; wy < height - 3; wy += 5) {
+                        for (let wx = -width/3; wx <= width/3; wx += 4) {
+                            const winFront = new THREE.Mesh(windowGeo, windowMat);
+                            winFront.position.set(building.position.x + wx, wy, building.position.z + depth/2 + 0.05);
+                            scene.add(winFront);
+
+                            const winBack = winFront.clone();
+                            winBack.position.z = building.position.z - depth/2 - 0.05;
+                            winBack.rotation.y = Math.PI;
+                            scene.add(winBack);
+                        }
+                    }
+
+                    // Add Purple Trees around houses
+                    if (Math.random() > 0.4) {
+                        createPurpleTree(building.position.x + width/2 + 4, building.position.z + depth/2 + 4);
+                    }
+                }
+            }
+
+            // Streetlights with Point Lights
+            const streetlightPositions = [
+                [-18, -18], [18, -18], [-18, 18], [18, 18],
+                [-50, -12], [50, -12], [-50, 12], [50, 12],
+                [-12, -50], [12, -50], [-12, 50], [12, 50]
+            ];
+
+            streetlightPositions.forEach(([sx, sz]) => {
+                // Post
+                const post = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.2, 0.3, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x240046, metalness: 0.8 })
+                );
+                post.position.set(sx, 4, sz);
+                post.castShadow = true;
+                scene.add(post);
+
+                // Lamp Globe
+                const lamp = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.8, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xf0abfc })
+                );
+                lamp.position.set(sx, 8, sz);
+                scene.add(lamp);
+
+                // Light source
+                const pLight = new THREE.PointLight(0xd8b4fe, 0.8, 25);
+                pLight.position.set(sx, 8, sz);
+                scene.add(pLight);
+            });
+        }
+
+        /* --- PURPLE STORE BUILDING --- */
+        function createPurpleStoreBuilding() {
+            const storeGroup = new THREE.Group();
+            
+            // Main structure
+            const baseGeo = new THREE.CylinderGeometry(10, 12, 10, 8);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x581c87, roughness: 0.3, metalness: 0.2 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = 5;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            storeGroup.add(base);
+
+            // Roof Dome
+            const roofGeo = new THREE.ConeGeometry(13, 8, 8);
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x9333ea, roughness: 0.2 });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.y = 14;
+            roof.castShadow = true;
+            storeGroup.add(roof);
+
+            // Huge Floating Gem on top
+            const crystalGeo = new THREE.OctahedronGeometry(3, 0);
+            const crystalMat = new THREE.MeshStandardMaterial({ 
+                color: 0xf0abfc, 
+                emissive: 0xa855f7, 
+                emissiveIntensity: 0.6,
+                roughness: 0.1 
+            });
+            const topCrystal = new THREE.Mesh(crystalGeo, crystalMat);
+            topCrystal.position.y = 21;
+            topCrystal.name = "store_crystal";
+            storeGroup.add(topCrystal);
+
+            // Glow Light
+            const storeLight = new THREE.PointLight(0xc084fc, 2, 30);
+            storeLight.position.y = 21;
+            storeGroup.add(storeLight);
+
+            // Move Store to North Plaza
+            storeGroup.position.set(0, 0, -25);
+            scene.add(storeGroup);
+
+            storeBuildingMesh = storeGroup;
+        }
+
+        /* --- PURPLE TREES --- */
+        function createPurpleTree(x, z) {
+            const tree = new THREE.Group();
+            
+            // Trunk
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.4, 0.6, 5),
+                new THREE.MeshStandardMaterial({ color: 0x3b0764 })
+            );
+            trunk.position.y = 2.5;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            // Purple Foliage (Cones stacked)
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.5 });
+            
+            for (let i = 0; i < 3; i++) {
+                const leaves = new THREE.Mesh(
+                    new THREE.ConeGeometry(3 - i * 0.6, 4, 8),
+                    leavesMat
+                );
+                leaves.position.y = 4.5 + i * 2.2;
+                leaves.castShadow = true;
+                tree.add(leaves);
+            }
+
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+        }
+
+        /* --- HUMAN-SHAPED PLAYER MODEL --- */
+        function createPlayer() {
+            player = new THREE.Group();
+
+            // Materials
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xc084fc, roughness: 0.4 });
+            const shirtMat = new THREE.MeshStandardMaterial({ color: 0x6b21a8, roughness: 0.3 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.5 });
+
+            // Torso
+            const torsoGeo = new THREE.BoxGeometry(1.2, 1.6, 0.7);
+            playerBody = new THREE.Mesh(torsoGeo, shirtMat);
+            playerBody.position.y = 2.0;
+            playerBody.castShadow = true;
+            player.add(playerBody);
+
+            // Head
+            const headGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+            playerHead = new THREE.Mesh(headGeo, skinMat);
+            playerHead.position.y = 3.3;
+            playerHead.castShadow = true;
+            player.add(playerHead);
+
+            // Hair/Crown Top
+            const hairGeo = new THREE.BoxGeometry(1.0, 0.3, 1.0);
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x581c87 });
+            const hair = new THREE.Mesh(hairGeo, hairMat);
+            hair.position.y = 3.8;
+            player.add(hair);
+
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.45, 1.3, 0.45);
+            
+            leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            leftLeg.position.set(-0.3, 0.65, 0);
+            leftLeg.castShadow = true;
+            player.add(leftLeg);
+
+            rightLeg = new THREE.Mesh(legGeo, pantsMat);
+            rightLeg.position.set(0.3, 0.65, 0);
+            rightLeg.castShadow = true;
+            player.add(rightLeg);
+
+            // Arms
+            const armGeo = new THREE.BoxGeometry(0.4, 1.3, 0.4);
+            
+            leftArm = new THREE.Mesh(armGeo, skinMat);
+            leftArm.position.set(-0.85, 2.0, 0);
+            leftArm.castShadow = true;
+            player.add(leftArm);
+
+            rightArm = new THREE.Mesh(armGeo, skinMat);
+            rightArm.position.set(0.85, 2.0, 0);
+            rightArm.castShadow = true;
+            player.add(rightArm);
+
+            // Position Player in Town Center
+            player.position.set(0, 0, 0);
+            scene.add(player);
+
+            // Create Aura System
+            createAuraParticles();
+        }
+
+        /* --- TOWN CITIZEN NPCs --- */
+        function createNPCs(count) {
+            const colors = [0x9333ea, 0xa855f7, 0x7e22ce, 0xc084fc, 0xe9d5ff];
+            
+            for (let i = 0; i < count; i++) {
+                const npc = new THREE.Group();
+                const skinMat = new THREE.MeshStandardMaterial({ color: colors[i % colors.length] });
+                const clothMat = new THREE.MeshStandardMaterial({ color: 0x4c1d95 });
+
+                // Simple Human Primitive Model
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.6), clothMat);
+                torso.position.y = 1.8;
+                npc.add(torso);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), skinMat);
+                head.position.y = 3.0;
+                npc.add(head);
+
+                const legL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), clothMat);
+                legL.position.set(-0.25, 0.6, 0);
+                npc.add(legL);
+
+                const legR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), clothMat);
+                legR.position.set(0.25, 0.6, 0);
+                npc.add(legR);
+
+                // Random Position in Town
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 15 + Math.random() * 80;
+                npc.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+                
+                // NPC Movement metadata
+                npc.userData = {
+                    targetX: npc.position.x + (Math.random() * 20 - 10),
+                    targetZ: npc.position.z + (Math.random() * 20 - 10),
+                    speed: 1.5 + Math.random() * 1.5,
+                    legL: legL,
+                    legR: legR,
+                    walkAnimTime: Math.random() * 10
+                };
+
+                scene.add(npc);
+                npcs.push(npc);
+            }
+        }
+
+        /* --- COLLECTIBLE PURPLE GEMS --- */
+        function spawnPurpleGems(count) {
+            const gemGeo = new THREE.OctahedronGeometry(0.7, 0);
+            const gemMat = new THREE.MeshStandardMaterial({ 
+                color: 0xf0abfc, 
+                emissive: 0xc084fc, 
+                emissiveIntensity: 0.5,
+                roughness: 0.2,
+                metalness: 0.8
+            });
+
+            for (let i = 0; i < count; i++) {
+                const gem = new THREE.Mesh(gemGeo, gemMat);
+                
+                // Random position away from origin
+                const rx = (Math.random() - 0.5) * 180;
+                const rz = (Math.random() - 0.5) * 180;
+                
+                gem.position.set(rx, 1.2 + Math.random() * 0.8, rz);
+                gem.castShadow = true;
+                gem.userData = { 
+                    baseY: gem.position.y,
+                    rotSpeed: 1 + Math.random() * 2,
+                    bobSpeed: 2 + Math.random() * 2
+                };
+
+                scene.add(gem);
+                purpleGems.push(gem);
+            }
+        }
+
+        /* --- PARTICLES & AURA EFFECTS --- */
+        function createAuraParticles() {
+            const auraGeo = new THREE.BufferGeometry();
+            const count = 60;
+            const positions = new Float32Array(count * 3);
+
+            for (let i = 0; i < count * 3; i += 3) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 1.2 + Math.random() * 0.8;
+                positions[i] = Math.cos(angle) * radius;
+                positions[i+1] = Math.random() * 2.5;
+                positions[i+2] = Math.sin(angle) * radius;
+            }
+
+            auraGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const auraMat = new THREE.PointsMaterial({
+                color: 0xf0abfc,
+                size: 0.25,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending
+            });
+
+            auraParticles = new THREE.Points(auraGeo, auraMat);
+            player.add(auraParticles);
+        }
+
+        function createCollectionBurst(pos) {
+            const pCount = 15;
+            const geom = new THREE.BufferGeometry();
+            const positions = new Float32Array(pCount * 3);
+            const velocities = [];
+
+            for (let i = 0; i < pCount; i++) {
+                positions[i*3] = pos.x;
+                positions[i*3+1] = pos.y;
+                positions[i*3+2] = pos.z;
+
+                velocities.push(
+                    (Math.random() - 0.5) * 6,
+                    Math.random() * 6 + 2,
+                    (Math.random() - 0.5) * 6
+                );
+            }
+
+            geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0xf472b6,
+                size: 0.35,
+                transparent: true,
+                opacity: 1.0,
+                blending: THREE.AdditiveBlending
+            });
+
+            const pSystem = new THREE.Points(geom, mat);
+            pSystem.userData = { velocities: velocities, life: 1.0 };
+            scene.add(pSystem);
+            purpleParticles.push(pSystem);
+        }
+
+        function createStepSparkle(pos) {
+            const geom = new THREE.BufferGeometry();
+            const p = new Float32Array([pos.x + (Math.random()-0.5)*0.8, 0.2, pos.z + (Math.random()-0.5)*0.8]);
+            geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
+            
+            const mat = new THREE.PointsMaterial({
+                color: 0xe9d5ff,
+                size: 0.4,
+                transparent: true,
+                opacity: 1.0,
+                blending: THREE.AdditiveBlending
+            });
+
+            const sparkle = new THREE.Points(geom, mat);
+            sparkle.userData = { life: 0.6 };
+            scene.add(sparkle);
+            trailParticles.push(sparkle);
+        }
+
+        /* --- PROCEDURAL AUDIO SYNTHESIZER --- */
+        function initAudio() {
+            document.getElementById('btn-audio').addEventListener('click', () => {
+                gameState.audioEnabled = !gameState.audioEnabled;
+                document.getElementById('audio-icon').className = gameState.audioEnabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark";
+            });
+        }
+
+        function playCollectSound() {
+            if (!gameState.audioEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                // Purple shimmering arpeggio note selection
+                const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                const note = freqs[Math.floor(Math.random() * freqs.length)];
+                
+                osc.frequency.setValueAtTime(note, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(note * 1.5, audioCtx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        /* --- INPUT & EVENT HANDLING --- */
+        function setupEvents() {
+            // Keyboard Listeners
+            window.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'w') keys.w = true;
+                if (e.key.toLowerCase() === 'a') keys.a = true;
+                if (e.key.toLowerCase() === 's') keys.s = true;
+                if (e.key.toLowerCase() === 'd') keys.d = true;
+                if (e.key === 'ArrowUp') keys.w = true;
+                if (e.key === 'ArrowLeft') keys.a = true;
+                if (e.key === 'ArrowDown') keys.s = true;
+                if (e.key === 'ArrowRight') keys.d = true;
+                if (e.key === 'Shift') keys.Shift = true;
+                if (e.key === ' ') {
+                    keys.Space = true;
+                    if (isGrounded) {
+                        playerVelocityY = 8.5;
+                        isGrounded = false;
+                    }
+                }
+                if (e.key.toLowerCase() === 'e') {
+                    // Check store proximity
+                    const distToStore = player.position.distanceTo(storeBuildingMesh.position);
+                    if (distToStore < 22) {
+                        toggleStoreModal(true);
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key.toLowerCase() === 'w') keys.w = false;
+                if (e.key.toLowerCase() === 'a') keys.a = false;
+                if (e.key.toLowerCase() === 's') keys.s = false;
+                if (e.key.toLowerCase() === 'd') keys.d = false;
+                if (e.key === 'ArrowUp') keys.w = false;
+                if (e.key === 'ArrowLeft') keys.a = false;
+                if (e.key === 'ArrowDown') keys.s = false;
+                if (e.key === 'ArrowRight') keys.d = false;
+                if (e.key === 'Shift') keys.Shift = false;
+                if (e.key === ' ') keys.Space = false;
+            });
+
+            // Mouse Drag Controls for Camera
+            window.addEventListener('mousedown', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+                    isMouseDown = true;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            window.addEventListener('mouseup', () => isMouseDown = false);
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                cameraAngleX -= deltaX * 0.005;
+                cameraAngleY = Math.max(0.1, Math.min(1.2, cameraAngleY + deltaY * 0.005));
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // Mobile Touch Camera Drag
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isMouseDown) {
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - previousMousePosition.x;
+                    const deltaY = touch.clientY - previousMousePosition.y;
+
+                    cameraAngleX -= deltaX * 0.006;
+                    cameraAngleY = Math.max(0.1, Math.min(1.2, cameraAngleY + deltaY * 0.006));
+
+                    previousMousePosition = { x: touch.clientX, y: touch.clientY };
+                }
+            });
+
+            window.addEventListener('touchstart', (e) => {
+                if (e.target.tagName !== 'BUTTON') {
+                    isMouseDown = true;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            });
+
+            window.addEventListener('touchend', () => isMouseDown = false);
+
+            // Window Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Store Buttons
+            document.getElementById('btn-store').addEventListener('click', () => toggleStoreModal(true));
+            document.getElementById('btn-close-store').addEventListener('click', () => toggleStoreModal(false));
+            document.getElementById('btn-close-store-2').addEventListener('click', () => toggleStoreModal(false));
+        }
+
+        /* --- UI & STORE SYSTEM --- */
+        function toggleStoreModal(show) {
+            const modal = document.getElementById('store-modal');
+            if (show) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                document.getElementById('store-purple-count').innerText = Math.floor(gameState.purple);
+            } else {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function renderUpgradesUI() {
+            const container = document.getElementById('upgrades-container');
+            container.innerHTML = '';
+
+            Object.keys(gameState.upgrades).forEach(key => {
+                const item = gameState.upgrades[key];
+                const isMax = item.level >= item.max;
+                const cost = Math.floor(item.baseCost * Math.pow(item.costMult, item.level));
+
+                const itemCard = document.createElement('div');
+                itemCard.className = "purple-glass p-4 rounded-2xl flex items-center justify-between gap-4 border border-purple-400/30 hover:border-purple-300 transition";
+
+                itemCard.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-900/80 border border-purple-400/40 flex items-center justify-center text-xl text-fuchsia-300">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-white text-base flex items-center gap-2">
+                                <span>${item.name}</span>
+                                <span class="text-xs bg-purple-800/80 text-purple-200 px-2 py-0.5 rounded-full border border-purple-500/30">
+                                    ${isMax ? 'MAX' : `Lvl ${item.level}/${item.max}`}
+                                </span>
+                            </div>
+                            <div class="text-xs text-purple-300/80">${item.desc}</div>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="buyUpgrade('${key}')"
+                        ${isMax || gameState.purple < cost ? 'disabled' : ''} 
+                        class="purple-button px-4 py-2 rounded-xl font-bold text-white text-sm whitespace-nowrap flex items-center gap-2">
+                        ${isMax ? 'Maxed' : `<span>🪻 ${cost}</span>`}
+                    </button>
+                `;
+
+                container.appendChild(itemCard);
+            });
+        }
+
+        window.buyUpgrade = function(key) {
+            const item = gameState.upgrades[key];
+            const cost = Math.floor(item.baseCost * Math.pow(item.costMult, item.level));
+
+            if (gameState.purple >= cost && item.level < item.max) {
+                gameState.purple -= cost;
+                item.level++;
+
+                // Apply dynamic upgrade effects
+                if (key === 'aura') {
+                    auraParticles.material.opacity = item.level * 0.18;
+                }
+                if (key === 'ultimate' && item.level === 1) {
+                    applyUltimateTransformation();
+                }
+
+                updatePurplenessStage();
+                updateUI();
+                renderUpgradesUI();
+                playCollectSound();
+            }
+        };
+
+        function updatePurplenessStage() {
+            const totalLevels = Object.values(gameState.upgrades).reduce((acc, u) => acc + u.level, 0);
+            
+            let stageName = "Stage 1: Lavender Novice";
+            if (totalLevels >= 5) stageName = "Stage 2: Violet Explorer";
+            if (totalLevels >= 12) stageName = "Stage 3: Deep Plum Master";
+            if (totalLevels >= 20) stageName = "Stage 4: Neon Purple Monarch";
+            if (gameState.upgrades.ultimate.level > 0) stageName = "Stage 5: ULTIMATE PURPLE GOD";
+
+            gameState.purplenessStage = stageName;
+            document.getElementById('purple-stage').innerText = stageName;
+        }
+
+        function updateUI() {
+            document.getElementById('purple-count').innerText = Math.floor(gameState.purple);
+            document.getElementById('store-purple-count').innerText = Math.floor(gameState.purple);
+        }
+
+        function applyUltimateTransformation() {
+            // Intensify atmosphere into concentrated violet
+            scene.fog.color.setHex(0x581c87);
+            scene.fog.density = 0.025;
+            scene.background.setHex(0x3b0764);
+            
+            // Boost all light intensities
+            scene.traverse((obj) => {
+                if (obj.isLight) {
+                    obj.intensity *= 1.8;
+                }
+            });
+        }
+
+        /* --- GAME LOOP & PHYSICS --- */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+
+            // Player Movement Logic
+            handlePlayerMovement(delta, elapsedTime);
+
+            // Camera Tracking
+            updateCameraPosition();
+
+            // Store Proximity Check
+            checkStoreProximity();
+
+            // Gems Animation & Collection Magnet Logic
+            updateGems(delta, elapsedTime);
+
+            // NPCs Animation & Movement
+            updateNPCs(delta, elapsedTime);
+
+            // Particle Systems Update
+            updateParticles(delta);
+
+            // Render Frame
+            renderer.render(scene, camera);
+        }
+
+        function handlePlayerMovement(delta, elapsedTime) {
+            // Movement Direction Vector
+            const moveSpeed = (8 + gameState.upgrades.speed.level * 2.2) * (keys.Shift ? 1.4 : 1.0);
+            const moveVector = new THREE.Vector3();
+
+            // Calculate direction based on camera horizontal orientation
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngleX);
+            const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngleX);
+
+            if (keys.w) moveVector.add(forward);
+            if (keys.s) moveVector.sub(forward);
+            if (keys.d) moveVector.add(right);
+            if (keys.a) moveVector.sub(right);
+
+            const isMoving = moveVector.lengthSq() > 0;
+
+            if (isMoving) {
+                moveVector.normalize();
+                
+                // Move Player Position
+                player.position.x += moveVector.x * moveSpeed * delta;
+                player.position.z += moveVector.z * moveSpeed * delta;
+
+                // Rotate player towards movement direction
+                const targetRotation = Math.atan2(moveVector.x, moveVector.z);
+                player.rotation.y = targetRotation;
+
+                // Animated Limb Walking Swing
+                const walkCycle = Math.sin(elapsedTime * (12 + gameState.upgrades.speed.level));
+                leftLeg.rotation.x = walkCycle * 0.6;
+                rightLeg.rotation.x = -walkCycle * 0.6;
+                leftArm.rotation.x = -walkCycle * 0.6;
+                rightArm.rotation.x = walkCycle * 0.6;
+
+                // Sparkle Trail Effect
+                if (gameState.upgrades.trail.level > 0 && Math.random() < 0.4) {
+                    createStepSparkle(player.position);
+                }
+            } else {
+                // Reset limb rotation when stationary
+                leftLeg.rotation.x = THREE.MathUtils.lerp(leftLeg.rotation.x, 0, 0.1);
+                rightLeg.rotation.x = THREE.MathUtils.lerp(rightLeg.rotation.x, 0, 0.1);
+                leftArm.rotation.x = THREE.MathUtils.lerp(leftArm.rotation.x, 0, 0.1);
+                rightArm.rotation.x = THREE.MathUtils.lerp(rightArm.rotation.x, 0, 0.1);
+            }
+
+            // Gravity & Jumping Physics
+            playerVelocityY -= 22 * delta; // Gravity
+            player.position.y += playerVelocityY * delta;
+
+            if (player.position.y <= 0) {
+                player.position.y = 0;
+                playerVelocityY = 0;
+                isGrounded = true;
+            }
+
+            // Keep inside World Bounds
+            const mapBound = 115;
+            player.position.x = Math.max(-mapBound, Math.min(mapBound, player.position.x));
+            player.position.z = Math.max(-mapBound, Math.min(mapBound, player.position.z));
+        }
+
+        function updateCameraPosition() {
+            const cameraDistance = 14;
+            const cameraHeight = Math.sin(cameraAngleY) * cameraDistance;
+            const cameraHorizontalDist = Math.cos(cameraAngleY) * cameraDistance;
+
+            const targetCamX = player.position.x + Math.sin(cameraAngleX) * cameraHorizontalDist;
+            const targetCamZ = player.position.z + Math.cos(cameraAngleX) * cameraHorizontalDist;
+            const targetCamY = player.position.y + cameraHeight + 2;
+
+            // Smooth camera lerp
+            camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.1);
+            camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.1);
+            camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.1);
+
+            camera.lookAt(player.position.x, player.position.y + 2, player.position.z);
+        }
+
+        function checkStoreProximity() {
+            const dist = player.position.distanceTo(storeBuildingMesh.position);
+            const prompt = document.getElementById('interaction-prompt');
+
+            if (dist < 20) {
+                prompt.style.opacity = '1';
+            } else {
+                prompt.style.opacity = '0';
+            }
+        }
+
+        function updateGems(delta, elapsedTime) {
+            // Rotate top store crystal
+            const storeCrystal = storeBuildingMesh.getObjectByName("store_crystal");
+            if (storeCrystal) {
+                storeCrystal.rotation.y += delta * 1.5;
+                storeCrystal.position.y = 21 + Math.sin(elapsedTime * 2) * 0.5;
+            }
+
+            const magnetRadius = 3 + gameState.upgrades.magnet.level * 2.5;
+            const multiplier = 1 + gameState.upgrades.multiplier.level * 0.5;
+
+            purpleGems.forEach((gem) => {
+                // Bobbing and Rotation
+                gem.rotation.y += delta * gem.userData.rotSpeed;
+                gem.position.y = gem.userData.baseY + Math.sin(elapsedTime * gem.userData.bobSpeed) * 0.3;
+
+                // Magnet attraction logic
+                const dist = player.position.distanceTo(gem.position);
+
+                if (dist < magnetRadius) {
+                    // Pull gem towards player
+                    const pullVector = new THREE.Vector3().subVectors(player.position, gem.position).normalize();
+                    gem.position.addScaledVector(pullVector, (magnetRadius - dist) * 12 * delta);
+                }
+
+                // Collection Hit Detection
+                if (dist < 1.8) {
+                    // Add Purple
+                    const yieldAmount = 1 * multiplier;
+                    gameState.purple += yieldAmount;
+
+                    // Effects
+                    createCollectionBurst(gem.position);
+                    playCollectSound();
+                    updateUI();
+                    renderUpgradesUI();
+
+                    // Respawn Gem at new position
+                    gem.position.x = (Math.random() - 0.5) * 180;
+                    gem.position.z = (Math.random() - 0.5) * 180;
+                    gem.userData.baseY = 1.2 + Math.random() * 0.8;
+                }
+            });
+        }
+
+        function updateNPCs(delta, elapsedTime) {
+            npcs.forEach((npc) => {
+                const data = npc.userData;
+                const dir = new THREE.Vector3(data.targetX - npc.position.x, 0, data.targetZ - npc.position.z);
+                const dist = dir.length();
+
+                if (dist > 1) {
+                    dir.normalize();
+                    npc.position.x += dir.x * data.speed * delta;
+                    npc.position.z += dir.z * data.speed * delta;
+                    npc.rotation.y = Math.atan2(dir.x, dir.z);
+
+                    // Walking Animation
+                    data.walkAnimTime += delta * 8;
+                    data.legL.rotation.x = Math.sin(data.walkAnimTime) * 0.5;
+                    data.legR.rotation.x = -Math.sin(data.walkAnimTime) * 0.5;
+                } else {
+                    // Pick new target position
+                    data.targetX = npc.position.x + (Math.random() * 40 - 20);
+                    data.targetZ = npc.position.z + (Math.random() * 40 - 20);
+                }
+            });
+        }
+
+        function updateParticles(delta) {
+            // Collection Explosions Update
+            for (let i = purpleParticles.length - 1; i >= 0; i--) {
+                const p = purpleParticles[i];
+                p.userData.life -= delta * 2.5;
+
+                const posAttr = p.geometry.attributes.position;
+                const vels = p.userData.velocities;
+
+                for (let j = 0; j < posAttr.count; j++) {
+                    posAttr.setXYZ(
+                        j,
+                        posAttr.getX(j) + vels[j*3] * delta,
+                        posAttr.getY(j) + vels[j*3+1] * delta,
+                        posAttr.getZ(j) + vels[j*3+2] * delta
+                    );
+                }
+                posAttr.needsUpdate = true;
+                p.material.opacity = Math.max(0, p.userData.life);
+
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    purpleParticles.splice(i, 1);
+                }
+            }
+
+            // Step Trail Particles Update
+            for (let i = trailParticles.length - 1; i >= 0; i--) {
+                const t = trailParticles[i];
+                t.userData.life -= delta * 2.0;
+                t.material.opacity = Math.max(0, t.userData.life);
+
+                if (t.userData.life <= 0) {
+                    scene.remove(t);
+                    trailParticles.splice(i, 1);
+                }
+            }
+
+            // Rotate Aura
+            if (auraParticles) {
+                auraParticles.rotation.y += delta * 2.0;
+            }
+        }
+    </script>
+</body>
+</html>

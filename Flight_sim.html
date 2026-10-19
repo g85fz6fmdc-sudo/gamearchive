@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Flight Simulator - WebGL Flight Engine</title>
+    <title>3D Flight Simulator - Dynamic Atmospheric Engine</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
@@ -128,6 +128,90 @@
             transform-origin: center;
         }
 
+        /* Restricted Airspace Banner in HUD Center */
+        #restricted-warning-banner {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(220, 38, 38, 0.85);
+            border: 2px solid #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 8px;
+            padding: 8px 20px;
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            display: none;
+            z-index: 25;
+            animation: pulse-banner 0.4s infinite alternate;
+        }
+
+        /* Interactive Space Altitude Pause Modal Box */
+        #space-warning-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 11, 20, 0.85);
+            backdrop-filter: blur(12px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 120;
+            pointer-events: auto;
+            cursor: pointer;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .space-modal-card {
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid #c084fc;
+            box-shadow: 0 0 40px rgba(192, 132, 252, 0.6);
+            border-radius: 16px;
+            padding: 30px 40px;
+            max-width: 600px;
+            animation: modal-glow 1.5s infinite alternate;
+        }
+
+        @keyframes modal-glow {
+            0% { box-shadow: 0 0 25px rgba(192, 132, 252, 0.4); }
+            100% { box-shadow: 0 0 50px rgba(192, 132, 252, 0.8); }
+        }
+
+        /* Atmospheric Layer Indicator Banner */
+        #atmosphere-layer-banner {
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            backdrop-filter: blur(6px);
+            border-radius: 20px;
+            padding: 5px 16px;
+            color: #38bdf8;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            display: none;
+            z-index: 20;
+            text-align: center;
+        }
+
+        @keyframes pulse-banner {
+            0% { transform: translateX(-50%) scale(0.96); opacity: 0.8; }
+            100% { transform: translateX(-50%) scale(1.04); opacity: 1; }
+        }
+
         /* Status Badges */
         .status-badge {
             display: inline-block;
@@ -165,6 +249,13 @@
             color: #fbbf24;
             border: 1px solid rgba(245, 158, 11, 0.7);
             animation: pulse-red 0.4s infinite alternate;
+        }
+
+        .badge-threat {
+            background: rgba(220, 38, 38, 0.5);
+            color: #ffffff;
+            border: 1px solid rgba(255, 0, 0, 0.9);
+            animation: pulse-red 0.25s infinite alternate;
         }
 
         @keyframes pulse-red {
@@ -218,7 +309,7 @@
             color: #f0f9ff;
         }
 
-        /* Score & Ring Counter Card */
+        /* Score & Location HUD Card */
         .ring-card {
             position: absolute;
             top: 10px;
@@ -226,6 +317,69 @@
             text-align: right;
             transform: scale(0.85);
             transform-origin: top right;
+        }
+
+        /* Fullscreen Interactive Map Overlay */
+        #map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 11, 20, 0.92);
+            backdrop-filter: blur(12px);
+            z-index: 90;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            pointer-events: auto;
+        }
+
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            max-width: 800px;
+            margin-bottom: 15px;
+        }
+
+        .map-title {
+            font-size: 24px;
+            font-weight: 900;
+            color: #38bdf8;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .map-close-hint {
+            font-size: 12px;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #map-canvas-container {
+            position: relative;
+            width: 90vw;
+            height: 75vh;
+            max-width: 800px;
+            max-height: 800px;
+            background: #0f172a;
+            border: 2px solid #38bdf8;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #map-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         /* Start Modal & Crash Banner */
@@ -255,19 +409,19 @@
         /* Plane Selection Cards Container */
         .aircraft-select-container {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             margin-top: 24px;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 900px;
+            max-width: 1050px;
         }
 
         .aircraft-card {
             background: rgba(15, 23, 42, 0.6);
             border: 2px solid rgba(56, 189, 248, 0.2);
             border-radius: 12px;
-            padding: 20px;
-            width: 240px;
+            padding: 16px;
+            width: 230px;
             cursor: pointer;
             transition: all 0.25s ease;
             text-align: left;
@@ -290,21 +444,21 @@
         }
 
         .card-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 800;
             color: #38bdf8;
             margin-bottom: 6px;
         }
 
         .card-desc {
-            font-size: 12px;
+            font-size: 11px;
             color: #94a3b8;
             line-height: 1.4;
             margin-bottom: 12px;
         }
 
         .card-stats {
-            font-size: 11px;
+            font-size: 10px;
             color: #e2e8f0;
             display: flex;
             flex-direction: column;
@@ -344,8 +498,8 @@
     <!-- START OVERLAY & PLANE SELECTION -->
     <div id="start-overlay">
         <h1 style="font-size: 38px; font-weight: 900; letter-spacing: 2px; color: #38bdf8; margin-bottom: 6px;">3D FLIGHT SIMULATOR</h1>
-        <p style="color: #94a3b8; max-width: 520px; line-height: 1.5; font-size: 14px;">
-            Select your aircraft configuration to initiate flight operations.
+        <p style="color: #94a3b8; max-width: 580px; line-height: 1.5; font-size: 14px;">
+            Atmospheric altitude simulation enabled! The sky darkens as you climb. Reaching Space (325,000 FT) pauses the game and rewards all aircraft with a permanent +2% speed boost per trip! Press <span style="color:#facc15; font-weight:bold;">[ M ]</span> for map.
         </p>
 
         <div class="aircraft-select-container">
@@ -353,38 +507,51 @@
             <div class="aircraft-card" id="card-fighter" onclick="selectAircraft('fighter')">
                 <div>
                     <div class="card-title">F-15 EAGLE JET</div>
-                    <div class="card-desc">Twin-engine air superiority fighter with clipped delta wings, double vertical tails, and high speed.</div>
+                    <div class="card-desc">Twin-engine supersonic fighter with real-world top speed capability up to Mach 2.5.</div>
                 </div>
                 <div class="card-stats">
-                    <div class="stat-row"><span>MAX SPEED:</span><span style="color:#38bdf8; font-weight:bold;">240 KTS</span></div>
-                    <div class="stat-row"><span>SCALE:</span><span style="color:#4ade80;">Compact / Fast</span></div>
-                    <div class="stat-row"><span>TAKEOFF SPEED:</span><span>45 KTS</span></div>
+                    <div class="stat-row"><span>BASE SPEED:</span><span style="color:#38bdf8; font-weight:bold;" id="stat-speed-fighter">1,650 KTS</span></div>
+                    <div class="stat-row"><span>CLEARANCE:</span><span style="color:#4ade80; font-weight:bold;">MILITARY OK</span></div>
+                    <div class="stat-row"><span>HOME BASE:</span><span style="color:#ef4444;">Fort Titan Base</span></div>
                 </div>
             </div>
 
-            <!-- Stunt Propeller Option (Default) -->
+            <!-- Stunt Propeller Option -->
             <div class="aircraft-card selected" id="card-propeller" onclick="selectAircraft('propeller')">
                 <div>
-                    <div class="card-title">STUNT PROPELLER</div>
-                    <div class="card-desc">Balanced aerobatic monoplane with crisp maneuverability and stable glide ratios.</div>
+                    <div class="card-title">EXTRA 300 STUNT</div>
+                    <div class="card-desc">High-performance civilian aerobatic monoplane. Super agile control response.</div>
                 </div>
                 <div class="card-stats">
-                    <div class="stat-row"><span>MAX SPEED:</span><span style="color:#38bdf8; font-weight:bold;">140 KTS</span></div>
-                    <div class="stat-row"><span>SCALE:</span><span style="color:#facc15;">Standard</span></div>
-                    <div class="stat-row"><span>TAKEOFF SPEED:</span><span>35 KTS</span></div>
+                    <div class="stat-row"><span>BASE SPEED:</span><span style="color:#38bdf8; font-weight:bold;" id="stat-speed-propeller">220 KTS</span></div>
+                    <div class="stat-row"><span>CLEARANCE:</span><span style="color:#f87171; font-weight:bold;">RESTRICTED</span></div>
+                    <div class="stat-row"><span>HOME BASE:</span><span style="color:#facc15;">Central Metro</span></div>
                 </div>
             </div>
 
             <!-- Cargo Plane Option -->
             <div class="aircraft-card" id="card-cargo" onclick="selectAircraft('cargo')">
                 <div>
-                    <div class="card-title">C-17 HEAVY CARGO</div>
-                    <div class="card-desc">Massive 4-engine military transport aircraft. Heavy inertia, coordinated banking turns, capped acrobatic limits.</div>
+                    <div class="card-title">C-17 GLOBEMASTER</div>
+                    <div class="card-desc">Heavy strategic military cargo transport. Long cruising momentum and massive wing loading.</div>
                 </div>
                 <div class="card-stats">
-                    <div class="stat-row"><span>MAX SPEED:</span><span style="color:#38bdf8; font-weight:bold;">110 KTS</span></div>
-                    <div class="stat-row"><span>SCALE:</span><span style="color:#f87171;">Super Giant (2x Size)</span></div>
-                    <div class="stat-row"><span>TAKEOFF SPEED:</span><span>30 KTS</span></div>
+                    <div class="stat-row"><span>BASE SPEED:</span><span style="color:#38bdf8; font-weight:bold;" id="stat-speed-cargo">450 KTS</span></div>
+                    <div class="stat-row"><span>CLEARANCE:</span><span style="color:#f87171; font-weight:bold;">RESTRICTED</span></div>
+                    <div class="stat-row"><span>HOME BASE:</span><span style="color:#38bdf8;">Mega Int'l Hub</span></div>
+                </div>
+            </div>
+
+            <!-- Crop Duster Option -->
+            <div class="aircraft-card" id="card-cropduster" onclick="selectAircraft('cropduster')">
+                <div>
+                    <div class="card-title">AIR TRACTOR CROP DUSTER</div>
+                    <div class="card-desc">Agricultural utility plane with high-lift wings, low stall speeds, and high stability. Spawns at rural dirt strip.</div>
+                </div>
+                <div class="card-stats">
+                    <div class="stat-row"><span>BASE SPEED:</span><span style="color:#38bdf8; font-weight:bold;" id="stat-speed-cropduster">145 KTS</span></div>
+                    <div class="stat-row"><span>CLEARANCE:</span><span style="color:#f87171; font-weight:bold;">RESTRICTED</span></div>
+                    <div class="stat-row"><span>HOME BASE:</span><span style="color:#facc15;">Dusty Creek Dirt Strip</span></div>
                 </div>
             </div>
         </div>
@@ -392,10 +559,36 @@
         <button class="start-btn" id="start-btn">LAUNCH SIMULATOR</button>
     </div>
 
-    <!-- CRASH BANNER -->
+    <!-- CRASH / SHOT DOWN BANNER -->
     <div id="crash-overlay">
-        <h1 style="font-size: 48px; font-weight: 900; color: #f87171; text-shadow: 0 0 20px #ef4444;">AIRCRAFT DESTROYED</h1>
-        <p style="color: #fca5a5; margin-top: 10px; font-weight: 600;">RESPAWNING AT RUNWAY THRESHOLD...</p>
+        <h1 style="font-size: 48px; font-weight: 900; color: #f87171; text-shadow: 0 0 20px #ef4444;" id="crash-title">AIRCRAFT DESTROYED</h1>
+        <p style="color: #fca5a5; margin-top: 10px; font-weight: 600;" id="crash-subtitle">RESPAWNING AT HOME AIRPORT...</p>
+    </div>
+
+    <!-- PAUSE MODAL WHEN REACHING SPACE -->
+    <div id="space-warning-modal" onclick="dismissSpaceModal()">
+        <div class="space-modal-card">
+            <h1 style="font-size: 26px; font-weight: 900; color: #c084fc; letter-spacing: 1.5px; margin-bottom: 12px;">
+                🚀 CONGRATULATIONS YOU HAVE REACHED SPACE... LITERALLY WHY ARE YOU UP HERE 🚀
+            </h1>
+            <p style="color: #e2e8f0; font-size: 14px; margin-bottom: 20px;">
+                All aircraft max speeds permanently boosted by <span style="color:#4ade80; font-weight:bold;">+2%</span>!
+            </p>
+            <div style="font-size: 13px; font-weight: 800; color: #38bdf8; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); padding: 10px 20px; border-radius: 30px; display: inline-block;">
+                CLICK SCREEN OR PRESS <span style="color:#facc15;">[ SPACE ]</span> TO CONTINUE (EXPLODE)
+            </div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN MAP OVERLAY (TOGGLED WITH M) -->
+    <div id="map-overlay">
+        <div class="map-header">
+            <div class="map-title">🧭 NAVIGATION MAP</div>
+            <div class="map-close-hint">PRESS <span style="color:#38bdf8; font-weight:bold;">[ M ]</span> TO CLOSE MAP</div>
+        </div>
+        <div id="map-canvas-container">
+            <canvas id="map-canvas"></canvas>
+        </div>
     </div>
 
     <!-- GLASS HUD OVERLAY -->
@@ -405,8 +598,8 @@
             <div class="hud-panel">
                 <div style="display: flex; gap: 16px;">
                     <div>
-                        <div class="gauge-title">AIRSPEED</div>
-                        <span class="gauge-value" id="val-speed">0</span><span class="gauge-unit">KTS</span>
+                        <div class="gauge-title">AIRSPEED / MACH</div>
+                        <span class="gauge-value" id="val-speed">0</span><span class="gauge-unit" id="val-mach">KTS</span>
                     </div>
                     <div style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 16px;">
                         <div class="gauge-title">ALTITUDE</div>
@@ -433,18 +626,36 @@
                 <div id="status-badge" class="status-badge badge-ground">GROUND TAXI</div>
             </div>
 
-            <!-- Right Panel: Rings Score -->
+            <!-- Right Panel: Location & Rings Score -->
             <div class="hud-panel ring-card">
-                <div class="gauge-title">TARGET RINGS</div>
-                <div class="gauge-value" style="color: #facc15;" id="val-rings">0 / 15</div>
-                <div style="font-size: 9px; color: #94a3b8; margin-top: 2px;">NAVIGATE THROUGH RINGS</div>
+                <div class="gauge-title">NEAREST BASE</div>
+                <div class="gauge-value" style="font-size:14px; color: #38bdf8;" id="val-location">Central Airport</div>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 4px;">TARGET RINGS: <span id="val-rings" style="color:#facc15; font-weight:bold;">0 / 25</span></div>
+                <div id="space-counter-container" style="font-size: 9px; color: #c084fc; margin-top: 4px; display: none;">
+                    SPACE VISITS: <span id="val-space-count" style="color:#e9d5ff; font-weight:bold;">0</span> 
+                    (<span id="val-speed-boost" style="color:#4ade80; font-weight:bold;">+0% BOOST</span>)
+                </div>
             </div>
+        </div>
+
+        <!-- RESTRICTED AIRSPACE UI WARNING BANNER -->
+        <div id="restricted-warning-banner">
+            ⚠️ RESTRICTED MILITARY AIRSPACE - AUTHORIZED ONLY ⚠️
+        </div>
+
+        <!-- ATMOSPHERE LAYER UI BANNER (APPEARS ABOVE 10,000 FT) -->
+        <div id="atmosphere-layer-banner">
+            ATMOSPHERE: <span id="val-atmosphere-layer" style="color:#ffffff; font-weight:900;">TROPOSPHERE</span>
         </div>
 
         <!-- Bottom Right Control Helper Card -->
         <div class="hud-panel controls-card">
             <div class="gauge-title" style="margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px;">
                 GTA V FLIGHT MAPPING
+            </div>
+            <div class="control-row">
+                <span style="color:#38bdf8; font-weight:bold;">Open Full Map</span>
+                <div><span class="key-badge" style="border-color:#38bdf8; color:#38bdf8;">M</span></div>
             </div>
             <div class="control-row">
                 <span style="color:#94a3b8;">Throttle Accelerate / Brake</span>
@@ -470,64 +681,119 @@
     </div>
 
     <script>
-        // Aircraft Configuration Presets
+        // World Base Locations & Extents
+        const LOCATIONS = [
+            { name: "Central City Airport", x: 0, z: 1100, color: "#22c55e", desc: "Central Metro Hub" },
+            { name: "Dusty Creek Dirt Airstrip", x: -9500, z: -9000, color: "#facc15", desc: "Run-Down Airfield" },
+            { name: "Mega World International", x: 11000, z: -10000, color: "#38bdf8", desc: "Jumbo Airport" },
+            { name: "Fort Titan Military Base", x: -10000, z: 10000, color: "#ef4444", desc: "Restricted Zone" }
+        ];
+
+        // Base Unboosted Aircraft Specs
+        const BASE_PRESET_SPEEDS = {
+            fighter: 1650.0,
+            propeller: 220.0,
+            cargo: 450.0,
+            cropduster: 145.0
+        };
+
+        // Aircraft Configuration Presets with Dynamic Speed Calculation
         const AIRCRAFT_PRESETS = {
             fighter: {
-                maxAirspeed: 240.0,
-                takeoffSpeed: 45.0,
-                stallSpeed: 38.0,
-                rollSpeed: 2.2,
-                pitchSpeed: 1.4,
+                baseMaxAirspeed: BASE_PRESET_SPEEDS.fighter,
+                maxAirspeed: BASE_PRESET_SPEEDS.fighter,
+                takeoffSpeed: 130.0,
+                stallSpeed: 100.0,
+                rollSpeed: 2.8,
+                pitchSpeed: 1.6,
                 wingWidth: 3.2,
                 wingOffset: 2.2,
                 groundY: 1.1,
-                camDist: 18.0,
-                camHeight: 4.8,
-                maxRollAngle: Math.PI * 2, // Unlimited roll (barrel rolls allowed)
-                inertia: 1.8,
+                camDist: 22.0,
+                camHeight: 5.5,
+                maxRollAngle: Math.PI * 2,
+                inertia: 2.5,
+                isMilitaryAuthorized: true,
+                spawnPos: new THREE.Vector3(-10000, 1.1, 10800),
                 bodyMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.3, metalness: 0.7 }),
                 wingMat: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.6 })
             },
             propeller: {
-                maxAirspeed: 140.0,
-                takeoffSpeed: 35.0,
-                stallSpeed: 28.0,
-                rollSpeed: 1.4,
-                pitchSpeed: 0.95,
+                baseMaxAirspeed: BASE_PRESET_SPEEDS.propeller,
+                maxAirspeed: BASE_PRESET_SPEEDS.propeller,
+                takeoffSpeed: 55.0,
+                stallSpeed: 48.0,
+                rollSpeed: 1.8,
+                pitchSpeed: 1.1,
                 wingWidth: 4.4,
                 wingOffset: 2.4,
                 groundY: 1.25,
                 camDist: 16.0,
                 camHeight: 4.5,
-                maxRollAngle: Math.PI * 2, // Unlimited roll
+                maxRollAngle: Math.PI * 2,
                 inertia: 1.8,
+                isMilitaryAuthorized: false,
+                spawnPos: new THREE.Vector3(0, 1.25, 1100),
                 bodyMat: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.4 }),
                 wingMat: new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.4, metalness: 0.2 })
             },
             cargo: {
-                maxAirspeed: 110.0,
-                takeoffSpeed: 30.0,
-                stallSpeed: 24.0,
-                rollSpeed: 0.65,      // Responsive banking speed
-                pitchSpeed: 0.45,     // Smooth, steady pitch
+                baseMaxAirspeed: BASE_PRESET_SPEEDS.cargo,
+                maxAirspeed: BASE_PRESET_SPEEDS.cargo,
+                takeoffSpeed: 115.0,
+                stallSpeed: 90.0,
+                rollSpeed: 0.65,
+                pitchSpeed: 0.45,
                 wingWidth: 28.0,
                 wingOffset: 14.0,
                 groundY: 4.4,
                 camDist: 42.0,
                 camHeight: 12.0,
-                maxRollAngle: 1.1,    // Max bank capped around ~63° (allows tight banking turns without upside-down flips)
-                inertia: 0.7,         // Realistic heavy inertia
+                maxRollAngle: 1.1,
+                inertia: 0.8,
+                isMilitaryAuthorized: false,
+                spawnPos: new THREE.Vector3(11000, 4.4, -8200),
                 bodyMat: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6, metalness: 0.3 }),
                 wingMat: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.3 })
+            },
+            cropduster: {
+                baseMaxAirspeed: BASE_PRESET_SPEEDS.cropduster,
+                maxAirspeed: BASE_PRESET_SPEEDS.cropduster,
+                takeoffSpeed: 42.0,
+                stallSpeed: 35.0,
+                rollSpeed: 1.2,
+                pitchSpeed: 0.85,
+                wingWidth: 5.2,
+                wingOffset: 2.8,
+                groundY: 1.3,
+                camDist: 15.0,
+                camHeight: 4.2,
+                maxRollAngle: Math.PI * 2,
+                inertia: 1.5,
+                isMilitaryAuthorized: false,
+                spawnPos: new THREE.Vector3(-9500, 1.3, -8400),
+                bodyMat: new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4, metalness: 0.3 }),
+                wingMat: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.2 })
             }
         };
 
         let selectedType = 'propeller';
         let activeConfig = AIRCRAFT_PRESETS.propeller;
 
-        // Dynamic Physics Properties derived from selection
         const MAX_THROTTLE = 1.0;
         const GRAVITY = 9.81;
+
+        // Map Toggle State
+        let isMapOpen = false;
+
+        // Pause Game State for Space Modal
+        let isGamePaused = false;
+        let isSpaceModalActive = false;
+
+        // Space Altitude State & Global Speed Multiplier (+2% Per Space Visit)
+        let spaceReachedCount = 0;
+        let speedMultiplier = 1.0;
+        let isSpaceExploded = false;
 
         // Key Input Tracker
         const keys = {
@@ -544,20 +810,22 @@
         let ringsCleared = 0;
         let isDead = false;
 
+        // Military Defense Missile System State
+        let militaryTowerPos = new THREE.Vector3(-9600, 230, 9400);
+        let activeMissile = null;
+
         // Turbulence State
         let turbulenceTime = 0.0;
 
         // Wing Damage & Destruction State
         let leftWingBroken = false;
         let rightWingBroken = false;
-        let spinVelocityRoll = 0.0;
-        let spinVelocityYaw = 0.0;
         let fallingDebris = [];
 
-        // Smoke / Fire Particle System
+        // Particle System
         let particleSystem = null;
         let particles = [];
-        const MAX_PARTICLES = 150;
+        const MAX_PARTICLES = 350;
 
         // Three.js Core Objects
         let scene, camera, renderer;
@@ -568,6 +836,12 @@
         let ringObjects = [];
         let clock = new THREE.Clock();
 
+        // Sky Color Objects for Smooth Interpolation
+        const daySkyColor = new THREE.Color(0x87ceeb);
+        const spaceSkyColor = new THREE.Color(0x020208);
+        const dayFogColor = new THREE.Color(0xa0c8f0);
+        const spaceFogColor = new THREE.Color(0x000000);
+
         // Web Audio Context & Nodes
         let audioCtx = null;
         let engineOsc = null;
@@ -576,6 +850,34 @@
         let windGain = null;
         let windNoiseNode = null;
 
+        function applySpeedBoosts() {
+            speedMultiplier = 1.0 + (spaceReachedCount * 0.02);
+            for (let type in AIRCRAFT_PRESETS) {
+                AIRCRAFT_PRESETS[type].maxAirspeed = AIRCRAFT_PRESETS[type].baseMaxAirspeed * speedMultiplier;
+            }
+
+            // Update UI Card Stats in Menu
+            document.getElementById('stat-speed-fighter').innerText = `${Math.round(AIRCRAFT_PRESETS.fighter.maxAirspeed)} KTS`;
+            document.getElementById('stat-speed-propeller').innerText = `${Math.round(AIRCRAFT_PRESETS.propeller.maxAirspeed)} KTS`;
+            document.getElementById('stat-speed-cargo').innerText = `${Math.round(AIRCRAFT_PRESETS.cargo.maxAirspeed)} KTS`;
+            document.getElementById('stat-speed-cropduster').innerText = `${Math.round(AIRCRAFT_PRESETS.cropduster.maxAirspeed)} KTS`;
+
+            // Update HUD Space Boost Label
+            const boostPercent = Math.round((speedMultiplier - 1.0) * 100);
+            document.getElementById('val-speed-boost').innerText = `+${boostPercent}% BOOST`;
+        }
+
+        function dismissSpaceModal() {
+            if (!isSpaceModalActive) return;
+            isSpaceModalActive = false;
+            document.getElementById('space-warning-modal').style.display = 'none';
+            isGamePaused = false;
+
+            // Trigger explosion immediately upon closing modal
+            createExplosionEffect(airplaneGroup.position.clone());
+            triggerCrash("AIRCRAFT DESTROYED IN SPACE!", "ATMOSPHERIC DISINTEGRATION AT 325,000 FT");
+        }
+
         function selectAircraft(type) {
             selectedType = type;
             activeConfig = AIRCRAFT_PRESETS[type];
@@ -583,7 +885,131 @@
             document.getElementById(`card-${type}`).classList.add('selected');
         }
 
-        // Procedural Window Facade Texture Generator
+        function toggleMap() {
+            isMapOpen = !isMapOpen;
+            const mapOverlay = document.getElementById('map-overlay');
+            mapOverlay.style.display = isMapOpen ? 'flex' : 'none';
+            if (isMapOpen) {
+                renderMap();
+            }
+        }
+
+        // Render Tactical 2D Top-Down Map
+        function renderMap() {
+            const canvas = document.getElementById('map-canvas');
+            const container = document.getElementById('map-canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            const ctx = canvas.getContext('2d');
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Map Bounds Coordinates (-20,000 to +20,000)
+            const mapScale = width / 40000;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            function worldToMap(wx, wz) {
+                return {
+                    x: centerX + wx * mapScale,
+                    y: centerY + wz * mapScale
+                };
+            }
+
+            // Dark Grid Map Background
+            ctx.fillStyle = '#0b1329';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Restricted Zone Red Perimeter
+            const fortTitanPos = worldToMap(-10000, 10000);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.arc(fortTitanPos.x, fortTitanPos.y, 2800 * mapScale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Target Rings on Map
+            ringObjects.forEach(ring => {
+                const rPos = worldToMap(ring.mesh.position.x, ring.mesh.position.z);
+                ctx.fillStyle = ring.cleared ? '#22c55e' : '#facc15';
+                ctx.beginPath();
+                ctx.arc(rPos.x, rPos.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Airbase Locations & Runway Markers
+            LOCATIONS.forEach(loc => {
+                const pos = worldToMap(loc.x, loc.z);
+
+                ctx.fillStyle = loc.color;
+                ctx.shadowColor = loc.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.fillText(loc.name, pos.x, pos.y - 14);
+
+                ctx.font = '10px sans-serif';
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText(loc.desc, pos.x, pos.y + 20);
+            });
+
+            // Draw Player Position Icon & Heading Vector
+            if (airplaneGroup) {
+                const pPos = worldToMap(airplaneGroup.position.x, airplaneGroup.position.z);
+                const euler = new THREE.Euler().setFromQuaternion(airplaneGroup.quaternion, 'YXZ');
+                const headingAngle = -euler.y;
+
+                ctx.save();
+                ctx.translate(pPos.x, pPos.y);
+                ctx.rotate(headingAngle);
+
+                // Airplane Arrow Triangle
+                ctx.fillStyle = '#facc15';
+                ctx.shadowColor = '#facc15';
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.moveTo(0, -12);
+                ctx.lineTo(-8, 10);
+                ctx.lineTo(0, 5);
+                ctx.lineTo(8, 10);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                // Player Altitude Label
+                ctx.font = 'bold 11px monospace';
+                ctx.fillStyle = '#facc15';
+                ctx.textAlign = 'center';
+                ctx.fillText(`YOU (${Math.round(airplaneGroup.position.y * 3.28)} FT)`, pPos.x, pPos.y - 20);
+            }
+        }
+
         function generateBuildingTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 256;
@@ -610,7 +1036,6 @@
             return texture;
         }
 
-        // Procedural Runway Tarmac Texture Generator
         function generateRunwayTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 512;
@@ -645,6 +1070,29 @@
             ctx.rotate(Math.PI);
             ctx.fillText('27', 0, 0);
             ctx.restore();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function generateDirtRunwayTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(0, 0, 256, 1024);
+
+            for (let i = 0; i < 4000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#92400e' : '#451a03';
+                ctx.fillRect(Math.random() * 256, Math.random() * 1024, 3, 3);
+            }
+
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.4)';
+            for (let y = 0; y < 1024; y += 60) {
+                ctx.fillRect(124, y, 8, 30);
+            }
 
             const texture = new THREE.CanvasTexture(canvas);
             return texture;
@@ -741,6 +1189,36 @@
             osc.stop(audioCtx.currentTime + 0.6);
         }
 
+        function playExplosionSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(15, audioCtx.currentTime + 0.9);
+            gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.9);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.9);
+        }
+
+        function playRocketLaunchSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.8);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.8);
+        }
+
         function initParticleSystem() {
             const particleGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(MAX_PARTICLES * 3);
@@ -778,7 +1256,7 @@
                 size: 3,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.7,
+                opacity: 0.8,
                 map: particleTex,
                 depthWrite: false,
                 blending: THREE.NormalBlending
@@ -788,11 +1266,11 @@
             scene.add(particleSystem);
         }
 
-        function spawnParticle(emitterPos) {
+        function spawnParticle(emitterPos, customVel = null, isRocketTrail = false) {
             const p = particles.find(pt => pt.life <= 0);
             if (!p) return;
 
-            p.life = 0.6 + Math.random() * 0.6;
+            p.life = isRocketTrail ? 0.35 + Math.random() * 0.25 : 0.6 + Math.random() * 0.6;
             p.maxLife = p.life;
             p.position.copy(emitterPos).add(new THREE.Vector3(
                 (Math.random() - 0.5) * 0.8,
@@ -800,15 +1278,50 @@
                 (Math.random() - 0.5) * 0.8
             ));
 
-            const driftVel = new THREE.Vector3(
-                (Math.random() - 0.5) * 2.0,
-                1.5 + Math.random() * 2.5,
-                (Math.random() - 0.5) * 2.0
-            );
-            p.velocity.copy(driftVel);
-            p.size = (selectedType === 'cargo' ? 5.0 : 2.5) + Math.random() * 2.5;
-
+            if (customVel) {
+                p.velocity.copy(customVel);
+            } else {
+                p.velocity.set(
+                    (Math.random() - 0.5) * 2.0,
+                    1.5 + Math.random() * 2.5,
+                    (Math.random() - 0.5) * 2.0
+                );
+            }
+            p.size = isRocketTrail ? 3.5 : ((selectedType === 'cargo' ? 5.0 : 2.5) + Math.random() * 2.5);
             p.color.setHSL(0.08 + Math.random() * 0.05, 1.0, 0.5);
+        }
+
+        function createExplosionEffect(centerPos) {
+            playExplosionSound();
+            for (let i = 0; i < 120; i++) {
+                const p = particles.find(pt => pt.life <= 0);
+                if (!p) continue;
+
+                p.life = 0.8 + Math.random() * 0.8;
+                p.maxLife = p.life;
+                p.position.copy(centerPos).add(new THREE.Vector3(
+                    (Math.random() - 0.5) * 4.0,
+                    (Math.random() - 0.5) * 4.0,
+                    (Math.random() - 0.5) * 4.0
+                ));
+
+                const spreadVel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 45.0,
+                    (Math.random() - 0.5) * 45.0 + 10.0,
+                    (Math.random() - 0.5) * 45.0
+                );
+                p.velocity.copy(spreadVel);
+                p.size = 12.0 + Math.random() * 16.0;
+
+                const colorType = Math.random();
+                if (colorType < 0.6) {
+                    p.color.setHSL(0.08, 1.0, 0.5);
+                } else if (colorType < 0.85) {
+                    p.color.setHSL(0.14, 1.0, 0.6);
+                } else {
+                    p.color.setRGB(0.15, 0.15, 0.15);
+                }
+            }
         }
 
         function updateParticleSystem(dt) {
@@ -829,6 +1342,10 @@
                     const emitPos = new THREE.Vector3(offset, 0.1, -0.2).applyMatrix4(planeMatrix);
                     spawnParticle(emitPos);
                 }
+            }
+
+            if (activeMissile) {
+                spawnParticle(activeMissile.mesh.position, new THREE.Vector3(0,0,0), true);
             }
 
             for (let i = 0; i < MAX_PARTICLES; i++) {
@@ -867,7 +1384,7 @@
             particleSystem.geometry.attributes.size.needsUpdate = true;
         }
 
-        // Build Low-Poly Aircraft Mesh based on selected preset
+        // Build Low-Poly Aircraft Mesh
         function createAircraftMesh() {
             if (airplaneGroup) scene.remove(airplaneGroup);
 
@@ -880,7 +1397,6 @@
             const engineMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.8 });
 
             if (selectedType === 'fighter') {
-                // F-15 EAGLE JET DESIGN
                 const noseGeo = new THREE.ConeGeometry(0.5, 3.2, 10);
                 noseGeo.rotateX(-Math.PI / 2);
                 const nose = new THREE.Mesh(noseGeo, bodyMat);
@@ -961,23 +1477,95 @@
                 propellerMesh = new THREE.Group();
                 airplaneGroup.add(propellerMesh);
 
+            } else if (selectedType === 'cropduster') {
+                const fuselageGeo = new THREE.CylinderGeometry(0.8, 0.4, 6.2, 12);
+                fuselageGeo.rotateX(Math.PI / 2);
+                const fuselage = new THREE.Mesh(fuselageGeo, bodyMat);
+                airplaneGroup.add(fuselage);
+
+                const canopyGeo = new THREE.BoxGeometry(0.9, 0.8, 1.4);
+                const canopy = new THREE.Mesh(canopyGeo, glassMat);
+                canopy.position.set(0, 0.75, 0.4);
+                airplaneGroup.add(canopy);
+
+                const wingGeo = new THREE.BoxGeometry(activeConfig.wingWidth, 0.14, 1.8);
+                wingLeftMesh = new THREE.Mesh(wingGeo, wingMat);
+                wingLeftMesh.position.set(-activeConfig.wingOffset, 0.35, -0.4);
+                airplaneGroup.add(wingLeftMesh);
+
+                wingRightMesh = new THREE.Mesh(wingGeo, wingMat);
+                wingRightMesh.position.set(activeConfig.wingOffset, 0.35, -0.4);
+                airplaneGroup.add(wingRightMesh);
+
+                const sprayBarGeo = new THREE.CylinderGeometry(0.06, 0.06, 9.0, 8);
+                sprayBarGeo.rotateZ(Math.PI / 2);
+                const sprayBarMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 });
+                const sprayBar = new THREE.Mesh(sprayBarGeo, sprayBarMat);
+                sprayBar.position.set(0, -0.3, -0.2);
+                airplaneGroup.add(sprayBar);
+
+                const aileronGeo = new THREE.BoxGeometry(2.4, 0.08, 0.35);
+                aileronLeft = new THREE.Mesh(aileronGeo, bodyMat);
+                aileronLeft.position.set(-3.4, 0.35, 0.4);
+                airplaneGroup.add(aileronLeft);
+
+                aileronRight = new THREE.Mesh(aileronGeo, bodyMat);
+                aileronRight.position.set(3.4, 0.35, 0.4);
+                airplaneGroup.add(aileronRight);
+
+                const finGeo = new THREE.BoxGeometry(0.12, 1.4, 1.3);
+                const fin = new THREE.Mesh(finGeo, bodyMat);
+                fin.position.set(0, 0.9, 2.5);
+                airplaneGroup.add(fin);
+
+                const rudderGeo = new THREE.BoxGeometry(0.1, 1.3, 0.4);
+                rudderMesh = new THREE.Mesh(rudderGeo, wingMat);
+                rudderMesh.position.set(0, 0.9, 3.1);
+                airplaneGroup.add(rudderMesh);
+
+                const tailWingGeo = new THREE.BoxGeometry(3.0, 0.1, 0.9);
+                const tailWing = new THREE.Mesh(tailWingGeo, wingMat);
+                tailWing.position.set(0, 0.2, 2.6);
+                airplaneGroup.add(tailWing);
+
+                const elevatorGeo = new THREE.BoxGeometry(1.3, 0.08, 0.3);
+                elevatorLeft = new THREE.Mesh(elevatorGeo, bodyMat);
+                elevatorLeft.position.set(-0.8, 0.2, 3.0);
+                airplaneGroup.add(elevatorLeft);
+
+                elevatorRight = new THREE.Mesh(elevatorGeo, bodyMat);
+                elevatorRight.position.set(0.8, 0.2, 3.0);
+                airplaneGroup.add(elevatorRight);
+
+                propellerMesh = new THREE.Group();
+                const hubGeo = new THREE.ConeGeometry(0.45, 0.7, 10);
+                hubGeo.rotateX(-Math.PI / 2);
+                const hub = new THREE.Mesh(hubGeo, chromeMat);
+                propellerMesh.add(hub);
+
+                const bladeGeo = new THREE.BoxGeometry(2.8, 0.18, 0.05);
+                const blade1 = new THREE.Mesh(bladeGeo, darkMat);
+                propellerMesh.add(blade1);
+
+                const blade2 = new THREE.Mesh(bladeGeo, darkMat);
+                blade2.rotation.z = Math.PI / 2;
+                propellerMesh.add(blade2);
+
+                propellerMesh.position.set(0, 0.1, -3.1);
+                airplaneGroup.add(propellerMesh);
+
             } else if (selectedType === 'cargo') {
-                // C-17 HEAVY CARGO PLANE (Clean high-wing monoplane design - NO wing on top of fuselage!)
-                
-                // Massive Main Fuselage Body
                 const fuselageGeo = new THREE.CylinderGeometry(3.6, 2.4, 28.0, 16);
                 fuselageGeo.rotateX(Math.PI / 2);
                 const fuselage = new THREE.Mesh(fuselageGeo, bodyMat);
                 airplaneGroup.add(fuselage);
 
-                // Cockpit Windshield
                 const canopyGeo = new THREE.SphereGeometry(3.4, 12, 12);
                 canopyGeo.scale(0.9, 0.7, 1.5);
                 const canopy = new THREE.Mesh(canopyGeo, glassMat);
                 canopy.position.set(0, 1.2, -9.0);
                 airplaneGroup.add(canopy);
 
-                // Left & Right Wings (Mounted directly to outer sides of upper fuselage)
                 const wingGeo = new THREE.BoxGeometry(activeConfig.wingWidth, 0.5, 6.4);
                 wingLeftMesh = new THREE.Mesh(wingGeo, wingMat);
                 wingLeftMesh.position.set(-activeConfig.wingOffset, 2.0, -1.0);
@@ -987,7 +1575,6 @@
                 wingRightMesh.position.set(activeConfig.wingOffset, 2.0, -1.0);
                 airplaneGroup.add(wingRightMesh);
 
-                // Large Ailerons
                 const aileronGeo = new THREE.BoxGeometry(8.0, 0.3, 1.0);
                 aileronLeft = new THREE.Mesh(aileronGeo, bodyMat);
                 aileronLeft.position.set(-activeConfig.wingOffset * 1.3, 2.0, 1.8);
@@ -997,7 +1584,6 @@
                 aileronRight.position.set(activeConfig.wingOffset * 1.3, 2.0, 1.8);
                 airplaneGroup.add(aileronRight);
 
-                // 4 Underwing Turbofan Engine Nacelles
                 const engineGeo = new THREE.CylinderGeometry(1.2, 1.0, 4.2, 12);
                 engineGeo.rotateX(Math.PI / 2);
 
@@ -1008,7 +1594,6 @@
                     airplaneGroup.add(eng);
                 });
 
-                // Single Vertical Stabilizer Tail Fin
                 const finGeo = new THREE.BoxGeometry(0.5, 7.0, 5.0);
                 const fin = new THREE.Mesh(finGeo, bodyMat);
                 fin.position.set(0, 5.6, 11.0);
@@ -1019,7 +1604,6 @@
                 rudderMesh.position.set(0, 5.6, 13.2);
                 airplaneGroup.add(rudderMesh);
 
-                // Horizontal Tail Elevators (Mounted high on top of vertical tail)
                 const elevatorGeo = new THREE.BoxGeometry(6.0, 0.24, 1.0);
                 elevatorLeft = new THREE.Mesh(elevatorGeo, bodyMat);
                 elevatorLeft.position.set(-3.6, 8.6, 13.2);
@@ -1033,7 +1617,6 @@
                 airplaneGroup.add(propellerMesh);
 
             } else {
-                // Default Stunt Propeller Aircraft
                 const fuselageGeo = new THREE.CylinderGeometry(0.7, 0.35, 6.5, 12);
                 fuselageGeo.rotateX(Math.PI / 2);
                 const fuselage = new THREE.Mesh(fuselageGeo, bodyMat);
@@ -1105,7 +1688,6 @@
                 airplaneGroup.add(propellerMesh);
             }
 
-            // Landing Wheels Assembly
             const wheelRadius = selectedType === 'cargo' ? 0.8 : 0.3;
             const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelRadius * 0.7, 12);
             wheelGeo.rotateZ(Math.PI / 2);
@@ -1124,7 +1706,7 @@
             frontWheelPivot.add(frontWheel);
             airplaneGroup.add(frontWheelPivot);
 
-            airplaneGroup.position.set(0, activeConfig.groundY, 1100);
+            airplaneGroup.position.copy(activeConfig.spawnPos);
             airplaneGroup.rotation.set(0, 0, 0);
             scene.add(airplaneGroup);
         }
@@ -1134,96 +1716,178 @@
             scene.add(ambientLight);
 
             const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.1);
-            sunLight.position.set(300, 500, 200);
+            sunLight.position.set(800, 1200, 600);
             sunLight.castShadow = true;
             scene.add(sunLight);
 
-            const groundGeo = new THREE.PlaneGeometry(12000, 12000);
+            const groundGeo = new THREE.PlaneGeometry(50000, 50000);
             const groundMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
             ground.position.y = 0;
             scene.add(ground);
 
-            const runwayGeo = new THREE.PlaneGeometry(120, 2400);
+            const bldgTex = generateBuildingTexture();
+            bldgTex.repeat.set(1, 4);
+            const buildingMat = new THREE.MeshStandardMaterial({ map: bldgTex, roughness: 0.4 });
+            const bldgGeo = new THREE.BoxGeometry(1, 1, 1);
+
+            // 1. CENTRAL CITY & AIRPORT
+            const runwayCentralGeo = new THREE.PlaneGeometry(120, 2400);
             const runwayTex = generateRunwayTexture();
             runwayTex.wrapS = THREE.ClampToEdgeWrapping;
             runwayTex.wrapT = THREE.ClampToEdgeWrapping;
-            const runwayMat = new THREE.MeshStandardMaterial({ map: runwayTex, roughness: 0.6 });
-            const runway = new THREE.Mesh(runwayGeo, runwayMat);
-            runway.rotation.x = -Math.PI / 2;
-            runway.position.set(0, 0.1, 0);
-            scene.add(runway);
-
-            const lightGeo = new THREE.SphereGeometry(0.8, 8, 8);
-            for (let z = -1180; z <= 1180; z += 80) {
-                let lightColor = 0xffffff;
-                if (z > 1100) lightColor = 0x22c55e;
-                if (z < -1100) lightColor = 0xef4444;
-
-                const lightMat = new THREE.MeshBasicMaterial({ color: lightColor });
-
-                const leftLight = new THREE.Mesh(lightGeo, lightMat);
-                leftLight.position.set(-62, 0.8, z);
-                scene.add(leftLight);
-
-                const rightLight = new THREE.Mesh(lightGeo, lightMat);
-                rightLight.position.set(62, 0.8, z);
-                scene.add(rightLight);
-            }
-
-            const bldgTex = generateBuildingTexture();
-            bldgTex.repeat.set(1, 4);
-
-            const buildingMat = new THREE.MeshStandardMaterial({ map: bldgTex, roughness: 0.4 });
-            const bldgGeo = new THREE.BoxGeometry(1, 1, 1);
+            const runwayMat = new THREE.MeshStandardMaterial({ 
+                map: runwayTex, 
+                roughness: 0.6,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -1
+            });
+            const runwayCentral = new THREE.Mesh(runwayCentralGeo, runwayMat);
+            runwayCentral.rotation.x = -Math.PI / 2;
+            runwayCentral.position.set(0, 0.05, 0);
+            scene.add(runwayCentral);
 
             for (let x = -2500; x <= 2500; x += 220) {
                 for (let z = -2500; z <= 2500; z += 220) {
                     if (Math.abs(x) < 220 && Math.abs(z) < 1400) continue;
-
                     const height = 60 + Math.random() * 320;
                     const width = 50 + Math.random() * 50;
                     const depth = 50 + Math.random() * 50;
-
                     const building = new THREE.Mesh(bldgGeo, buildingMat);
                     building.scale.set(width, height, depth);
                     building.position.set(x + (Math.random() * 40 - 20), height / 2, z + (Math.random() * 40 - 20));
                     scene.add(building);
-
-                    const box = new THREE.Box3().setFromObject(building);
-                    buildingBoxes.push(box);
+                    buildingBoxes.push(new THREE.Box3().setFromObject(building));
                 }
             }
 
+            // 2. DUSTY CREEK RURAL AIRSTRIP (-9500, -9000)
+            const dirtRunwayGeo = new THREE.PlaneGeometry(70, 1600);
+            const dirtTex = generateDirtRunwayTexture();
+            dirtTex.wrapS = THREE.ClampToEdgeWrapping;
+            dirtTex.wrapT = THREE.ClampToEdgeWrapping;
+            const dirtMat = new THREE.MeshStandardMaterial({ 
+                map: dirtTex, 
+                roughness: 0.9,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -1
+            });
+            const dirtRunway = new THREE.Mesh(dirtRunwayGeo, dirtMat);
+            dirtRunway.rotation.x = -Math.PI / 2;
+            dirtRunway.position.set(-9500, 0.05, -9000);
+            scene.add(dirtRunway);
+
+            const houseMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
+            for (let i = 0; i < 45; i++) {
+                const hx = -9500 + (Math.random() * 1600 - 800);
+                const hz = -9000 + (Math.random() * 2000 - 1000);
+                if (Math.abs(hx - (-9500)) < 120) continue;
+
+                const houseHeight = 8 + Math.random() * 12;
+                const house = new THREE.Mesh(bldgGeo, houseMat);
+                house.scale.set(20 + Math.random() * 15, houseHeight, 20 + Math.random() * 15);
+                house.position.set(hx, houseHeight / 2, hz);
+                scene.add(house);
+                buildingBoxes.push(new THREE.Box3().setFromObject(house));
+            }
+
+            // 3. MEGA INTERNATIONAL AIRPORT HUB (11000, -10000)
+            const megaRunwayGeo = new THREE.PlaneGeometry(240, 4800);
+            const megaRunway1 = new THREE.Mesh(megaRunwayGeo, runwayMat);
+            megaRunway1.rotation.x = -Math.PI / 2;
+            megaRunway1.position.set(11000, 0.05, -10000);
+            scene.add(megaRunway1);
+
+            const terminalMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, metalness: 0.8, transparent: true, opacity: 0.85 });
+            const mainTerminal = new THREE.Mesh(bldgGeo, terminalMat);
+            mainTerminal.scale.set(600, 80, 300);
+            mainTerminal.position.set(11800, 40, -10000);
+            scene.add(mainTerminal);
+            buildingBoxes.push(new THREE.Box3().setFromObject(mainTerminal));
+
+            for (let x = 8500; x <= 14500; x += 350) {
+                for (let z = -13500; z <= -6500; z += 350) {
+                    if (Math.abs(x - 11000) < 600) continue;
+                    const height = 180 + Math.random() * 450;
+                    const building = new THREE.Mesh(bldgGeo, buildingMat);
+                    building.scale.set(100, height, 100);
+                    building.position.set(x, height / 2, z);
+                    scene.add(building);
+                    buildingBoxes.push(new THREE.Box3().setFromObject(building));
+                }
+            }
+
+            // 4. FORT TITAN MILITARY BASE (-10000, 10000)
+            const milRunwayMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1e293b, 
+                roughness: 0.5,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnits: -1 
+            });
+            const milRunway = new THREE.Mesh(new THREE.PlaneGeometry(160, 3200), milRunwayMat);
+            milRunway.rotation.x = -Math.PI / 2;
+            milRunway.position.set(-10000, 0.05, 10000);
+            scene.add(milRunway);
+
+            const fenceMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, wireframe: true });
+            const fenceBox = new THREE.Mesh(new THREE.BoxGeometry(2200, 18, 3800), fenceMat);
+            fenceBox.position.set(-10000, 9, 10000);
+            scene.add(fenceBox);
+
+            const towerBaseGeo = new THREE.CylinderGeometry(12, 16, 220, 12);
+            const towerMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4 });
+            const towerBase = new THREE.Mesh(towerBaseGeo, towerMat);
+            towerBase.position.set(-9600, 110, 9400);
+            scene.add(towerBase);
+            buildingBoxes.push(new THREE.Box3().setFromObject(towerBase));
+
+            const cabinGeo = new THREE.CylinderGeometry(28, 20, 35, 8);
+            const cabin = new THREE.Mesh(cabinGeo, terminalMat);
+            cabin.position.set(-9600, 237.5, 9400);
+            scene.add(cabin);
+            buildingBoxes.push(new THREE.Box3().setFromObject(cabin));
+
+            const hangarMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.7 });
+            for (let i = -1; i <= 1; i += 2) {
+                const hangar = new THREE.Mesh(new THREE.CylinderGeometry(60, 60, 180, 12, 1, false, 0, Math.PI), hangarMat);
+                hangar.rotation.z = Math.PI / 2;
+                hangar.position.set(-10400, 0, 10000 + i * 500);
+                scene.add(hangar);
+                buildingBoxes.push(new THREE.Box3().setFromObject(hangar));
+            }
+
             const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, flatShading: true });
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 90; i++) {
                 const cloudGroup = new THREE.Group();
                 const numPuffs = 4 + Math.floor(Math.random() * 5);
                 for (let j = 0; j < numPuffs; j++) {
-                    const puffGeo = new THREE.DodecahedronGeometry(30 + Math.random() * 40, 1);
+                    const puffGeo = new THREE.DodecahedronGeometry(40 + Math.random() * 50, 1);
                     const puff = new THREE.Mesh(puffGeo, cloudMat);
-                    puff.position.set(j * 25, Math.random() * 10, Math.random() * 20);
+                    puff.position.set(j * 35, Math.random() * 15, Math.random() * 30);
                     cloudGroup.add(puff);
                 }
                 cloudGroup.position.set(
-                    Math.random() * 6000 - 3000,
-                    450 + Math.random() * 450,
-                    Math.random() * 6000 - 3000
+                    Math.random() * 36000 - 18000,
+                    550 + Math.random() * 650,
+                    Math.random() * 36000 - 18000
                 );
                 scene.add(cloudGroup);
             }
 
-            const ringGeo = new THREE.TorusGeometry(18, 1.8, 12, 24);
+            const ringGeo = new THREE.TorusGeometry(25, 2.2, 12, 24);
             const ringMat = new THREE.MeshBasicMaterial({ color: 0xeab308 });
 
-            for (let i = 0; i < 15; i++) {
+            for (let i = 0; i < 25; i++) {
                 const ring = new THREE.Mesh(ringGeo, ringMat.clone());
-                const angle = (i / 15) * Math.PI * 2;
-                const radius = 900 + Math.sin(i * 3) * 300;
+                const angle = (i / 25) * Math.PI * 2;
+                const radius = 3500 + Math.sin(i * 2) * 2000;
                 const x = Math.cos(angle) * radius;
                 const z = Math.sin(angle) * radius;
-                const y = 80 + (i % 5) * 60;
+                const y = 100 + (i % 6) * 80;
 
                 ring.position.set(x, y, z);
                 ring.rotation.y = angle + Math.PI / 2;
@@ -1235,6 +1899,12 @@
         function setupControls() {
             window.addEventListener('keydown', (e) => {
                 const k = e.key.toLowerCase();
+                if (k === 'm') {
+                    toggleMap();
+                }
+                if (e.code === 'Space' && isSpaceModalActive) {
+                    dismissSpaceModal();
+                }
                 if (keys.hasOwnProperty(k)) keys[k] = true;
             });
 
@@ -1289,10 +1959,18 @@
             }
         }
 
-        function triggerCrash() {
+        function triggerCrash(customTitle = "AIRCRAFT DESTROYED", customSubtitle = "RESPAWNING AT HOME AIRPORT...") {
             if (isDead) return;
             isDead = true;
             playCrashSound();
+
+            if (activeMissile) {
+                scene.remove(activeMissile.mesh);
+                activeMissile = null;
+            }
+
+            document.getElementById('crash-title').innerText = customTitle;
+            document.getElementById('crash-subtitle').innerText = customSubtitle;
             document.getElementById('crash-overlay').style.display = 'flex';
 
             setTimeout(() => {
@@ -1308,15 +1986,50 @@
 
                 particles.forEach(p => p.life = 0);
 
-                airplaneGroup.position.set(0, activeConfig.groundY, 1100);
+                airplaneGroup.position.copy(activeConfig.spawnPos);
                 airplaneGroup.rotation.set(0, 0, 0);
                 airspeed = 0;
                 throttle = 0;
                 climbRate = 0;
                 isGrounded = true;
                 isDead = false;
+                isSpaceExploded = false;
                 document.getElementById('crash-overlay').style.display = 'none';
-            }, 2000);
+            }, 2500);
+        }
+
+        function launchDefenseMissile() {
+            if (activeMissile || isDead) return;
+
+            const rocketGeo = new THREE.ConeGeometry(1.2, 8.0, 8);
+            rocketGeo.rotateX(-Math.PI / 2);
+            const rocketMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const rocketMesh = new THREE.Mesh(rocketGeo, rocketMat);
+            rocketMesh.position.copy(militaryTowerPos);
+
+            scene.add(rocketMesh);
+            playRocketLaunchSound();
+
+            activeMissile = {
+                mesh: rocketMesh,
+                speed: 1800.0 // Scaled to intercept Mach 2.5 fighters
+            };
+        }
+
+        function updateMissile(dt) {
+            if (!activeMissile || !airplaneGroup) return;
+
+            const targetPos = airplaneGroup.position.clone();
+            const direction = targetPos.sub(activeMissile.mesh.position).normalize();
+
+            activeMissile.mesh.position.addScaledVector(direction, activeMissile.speed * dt);
+            activeMissile.mesh.lookAt(airplaneGroup.position);
+
+            const dist = activeMissile.mesh.position.distanceTo(airplaneGroup.position);
+            if (dist < 18.0) {
+                createExplosionEffect(activeMissile.mesh.position.clone());
+                triggerCrash("SHOT DOWN BY MILITARY BASE ROCKET!", "UNAUTHORIZED CIVILIAN ENTRY DETECTED");
+            }
         }
 
         function updateDebris(dt) {
@@ -1337,12 +2050,13 @@
         }
 
         function updateFlightPhysics(dt) {
-            if (isDead || !airplaneGroup) return;
+            if (isDead || !airplaneGroup || isGamePaused) return;
 
             updateDebris(dt);
             updateParticleSystem(dt);
+            updateMissile(dt);
 
-            // 1. THROTTLE & AIRSPEED CONTROL
+            // 1. THROTTLE & AIRSPEED CONTROL WITH REAL ACCELERATION
             const accelRate = activeConfig.inertia;
             if (keys.w) {
                 throttle = Math.min(MAX_THROTTLE, throttle + dt * 0.35 * accelRate);
@@ -1351,7 +2065,7 @@
             }
 
             const targetAirspeed = throttle * activeConfig.maxAirspeed;
-            airspeed += (targetAirspeed - airspeed) * dt * (1.8 * accelRate);
+            airspeed += (targetAirspeed - airspeed) * dt * (1.2 * accelRate);
 
             const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(airplaneGroup.quaternion);
             const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(airplaneGroup.quaternion);
@@ -1360,7 +2074,7 @@
             const sideFactor = Math.abs(Math.sin(currentEuler.z));
 
             if (!isGrounded) {
-                airspeed += forwardVector.y * 35.0 * dt;
+                airspeed += forwardVector.y * 45.0 * dt;
                 airspeed -= sideFactor * 15.0 * dt;
                 airspeed = Math.max(0.0, airspeed);
             }
@@ -1394,7 +2108,7 @@
                 frontWheelPivot.rotation.y = steerAngle;
                 rudderMesh.rotation.y = steerAngle;
 
-                airplaneGroup.rotateY(steerAngle * (airspeed / 35.0) * dt);
+                airplaneGroup.rotateY(steerAngle * Math.min(1.0, airspeed / 50.0) * dt);
 
                 aileronLeft.rotation.z = 0;
                 aileronRight.rotation.z = 0;
@@ -1415,20 +2129,18 @@
                 elevatorRight.rotation.x = elevatorInput;
 
                 if (keys.s) {
-                    airspeed = Math.max(0, airspeed - dt * 25.0);
+                    airspeed = Math.max(0, airspeed - dt * 35.0);
                 }
 
             } else {
                 frontWheelPivot.rotation.y = 0;
 
-                // Pitch Control
                 let elevatorInput = 0;
                 if (keys.i) { airplaneGroup.rotateX(-activeConfig.pitchSpeed * dt); elevatorInput = 0.4; }
                 if (keys.k) { airplaneGroup.rotateX(activeConfig.pitchSpeed * dt); elevatorInput = -0.4; }
                 elevatorLeft.rotation.x = elevatorInput;
                 elevatorRight.rotation.x = elevatorInput;
 
-                // Roll & Coordinated Turning Dynamics
                 const rollPower = hasWingDamage ? activeConfig.rollSpeed * 0.5 : activeConfig.rollSpeed;
                 let aileronInput = 0;
 
@@ -1445,7 +2157,6 @@
                     }
                 }
 
-                // Cargo Plane Coordinated Turning (Banking into J/L causes natural aerodynamic turning yaw)
                 if (selectedType === 'cargo' && !hasWingDamage) {
                     const bankYawRate = -Math.sin(currentEuler.z) * 0.65;
                     airplaneGroup.rotateY(bankYawRate * dt);
@@ -1454,7 +2165,6 @@
                 if (!leftWingBroken) aileronLeft.rotation.z = aileronInput;
                 if (!rightWingBroken) aileronRight.rotation.z = -aileronInput;
 
-                // Self-Righting / Auto-Leveling Physics
                 if (!hasWingDamage && (selectedType === 'cargo' || (!keys.j && !keys.l))) {
                     const levelingSpeed = selectedType === 'cargo' ? 0.8 : 0.35;
                     airplaneGroup.rotateZ(-currentEuler.z * levelingSpeed * dt);
@@ -1474,9 +2184,10 @@
                 }
             }
 
-            // 4. POSITION UPDATE
+            // 4. POSITION UPDATE (Scaled for 1 Knots = 0.514 M/S relative to Three.js world scale)
+            const speedScaleFactor = selectedType === 'fighter' ? 0.45 : 0.65;
             if (!isGrounded) {
-                airplaneGroup.translateZ(-airspeed * dt);
+                airplaneGroup.translateZ(-airspeed * speedScaleFactor * dt);
 
                 const verticalLiftFactor = Math.max(0.0, localUp.y);
                 const wingLossPenalty = (leftWingBroken ? 0.35 : 0) + (rightWingBroken ? 0.35 : 0);
@@ -1484,17 +2195,82 @@
                 airplaneGroup.position.y -= liftDeficit * dt;
             } else {
                 const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(airplaneGroup.quaternion);
-                airplaneGroup.position.x += forward.x * airspeed * dt;
-                airplaneGroup.position.z += forward.z * airspeed * dt;
-                airplaneGroup.position.y = Math.max(activeConfig.groundY, airplaneGroup.position.y + forward.y * airspeed * dt);
+                airplaneGroup.position.x += forward.x * airspeed * speedScaleFactor * dt;
+                airplaneGroup.position.z += forward.z * airspeed * speedScaleFactor * dt;
+                airplaneGroup.position.y = Math.max(activeConfig.groundY, airplaneGroup.position.y + forward.y * airspeed * speedScaleFactor * dt);
             }
 
             if (propellerMesh) {
-                propellerMesh.rotation.z += (throttle * 40.0 + 5.0) * dt;
+                propellerMesh.rotation.z += (throttle * 45.0 + 5.0) * dt;
             }
 
-            // 5. LANDING & GROUND COLLISION
+            // 5. ALTITUDE DYNAMIC SKY COLORING & ATMOSPHERE LAYER MONITORING
             const currentY = airplaneGroup.position.y;
+            const currentAltitudeFeet = currentY * 3.28084;
+            const distToFortTitan = Math.hypot(airplaneGroup.position.x - (-10000), airplaneGroup.position.z - 10000);
+
+            // Interpolate Sky Darkening from 0 FT to Space (325,000 FT)
+            const skyDarknessRatio = Math.min(1.0, Math.max(0.0, currentAltitudeFeet / 325000.0));
+            scene.background.copy(daySkyColor).lerp(spaceSkyColor, skyDarknessRatio);
+            scene.fog.color.copy(dayFogColor).lerp(spaceFogColor, skyDarknessRatio);
+
+            // Atmospheric Layers UI Logic (> 10,000 FT)
+            const layerBanner = document.getElementById('atmosphere-layer-banner');
+            const layerText = document.getElementById('val-atmosphere-layer');
+
+            if (currentAltitudeFeet >= 10000) {
+                layerBanner.style.display = 'block';
+                if (currentAltitudeFeet < 39000) {
+                    layerText.innerText = "TROPOSPHERE";
+                    layerText.style.color = "#38bdf8";
+                } else if (currentAltitudeFeet < 160000) {
+                    layerText.innerText = "STRATOSPHERE";
+                    layerText.style.color = "#818cf8";
+                } else if (currentAltitudeFeet < 280000) {
+                    layerText.innerText = "MESOSPHERE";
+                    layerText.style.color = "#c084fc";
+                } else if (currentAltitudeFeet < 325000) {
+                    layerText.innerText = "THERMOSPHERE";
+                    layerText.style.color = "#f43f5e";
+                } else {
+                    layerText.innerText = "EXOSPHERE / OUTER SPACE";
+                    layerText.style.color = "#a855f7";
+                }
+            } else {
+                layerBanner.style.display = 'none';
+            }
+
+            // SPACE ALTITUDE CHECK (325,000 FT) - PAUSES GAME AND WAITS FOR CLICK/SPACE
+            if (currentAltitudeFeet >= 325000) {
+                if (!isSpaceExploded && !isDead && !isSpaceModalActive) {
+                    isSpaceExploded = true;
+                    isGamePaused = true;
+                    isSpaceModalActive = true;
+                    spaceReachedCount++;
+
+                    // Apply +2% speed boost reward across all aircraft presets
+                    applySpeedBoosts();
+
+                    // Display Pause Modal Box
+                    document.getElementById('space-warning-modal').style.display = 'flex';
+
+                    // Unhide and update space visit counter HUD after 1st occurrence
+                    const spaceCounterContainer = document.getElementById('space-counter-container');
+                    spaceCounterContainer.style.display = 'block';
+                    document.getElementById('val-space-count').innerText = spaceReachedCount;
+                }
+            }
+
+            const warningBanner = document.getElementById('restricted-warning-banner');
+            if (!activeConfig.isMilitaryAuthorized && distToFortTitan < 2800) {
+                warningBanner.style.display = 'block';
+                if (distToFortTitan < 1800 && currentY < 220.0) {
+                    launchDefenseMissile();
+                }
+            } else {
+                warningBanner.style.display = 'none';
+            }
+
             if (currentY <= activeConfig.groundY) {
                 if (!isGrounded) {
                     const safeDescent = forwardVector.y > -0.5;
@@ -1548,17 +2324,17 @@
                         item.mesh.material.color.setHex(0x22c55e);
                         ringsCleared++;
                         playRingChime();
-                        document.getElementById('val-rings').innerText = `${ringsCleared} / 15`;
+                        document.getElementById('val-rings').innerText = `${ringsCleared} / 25`;
                     }
                 }
             });
 
             // 8. AUDIO SYNTH MODULATION
             if (audioCtx) {
-                const rpmHz = 40 + throttle * 140 + airspeed * 0.6;
+                const rpmHz = 40 + throttle * 140 + airspeed * 0.1;
                 engineOsc.frequency.setTargetAtTime(rpmHz, audioCtx.currentTime, 0.1);
                 engineFilter.frequency.setTargetAtTime(200 + throttle * 1200, audioCtx.currentTime, 0.1);
-                windGain.gain.setTargetAtTime(Math.pow(airspeed / activeConfig.maxAirspeed, 2) * 0.2, audioCtx.currentTime, 0.1);
+                windGain.gain.setTargetAtTime(Math.pow(airspeed / activeConfig.maxAirspeed, 2) * 0.25, audioCtx.currentTime, 0.1);
             }
         }
 
@@ -1576,13 +2352,34 @@
             );
             camera.lookAt(lookAtPos);
 
-            camera.fov = 60 + (airspeed / activeConfig.maxAirspeed) * 15;
+            camera.fov = 60 + Math.min(30, (airspeed / activeConfig.maxAirspeed) * 25);
             camera.updateProjectionMatrix();
 
-            document.getElementById('val-speed').innerText = Math.round(airspeed);
+            const knots = Math.round(airspeed);
+            const mach = (airspeed / 661.7).toFixed(2);
+
+            if (selectedType === 'fighter') {
+                document.getElementById('val-speed').innerText = `${knots} (${mach} M)`;
+                document.getElementById('val-mach').innerText = 'KTS';
+            } else {
+                document.getElementById('val-speed').innerText = knots;
+                document.getElementById('val-mach').innerText = 'KTS';
+            }
+
             document.getElementById('val-altitude').innerText = Math.max(0, Math.round(airplaneGroup.position.y * 3.28084));
             document.getElementById('val-throttle-txt').innerText = `${Math.round(throttle * 100)}%`;
             document.getElementById('throttle-bar-fill').style.width = `${throttle * 100}%`;
+
+            let nearestLoc = LOCATIONS[0];
+            let minDist = Infinity;
+            LOCATIONS.forEach(loc => {
+                const dist = Math.hypot(airplaneGroup.position.x - loc.x, airplaneGroup.position.z - loc.z);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestLoc = loc;
+                }
+            });
+            document.getElementById('val-location').innerText = nearestLoc.name;
 
             const euler = new THREE.Euler().setFromQuaternion(airplaneGroup.quaternion, 'YXZ');
             const pitchDeg = euler.x * (180 / Math.PI);
@@ -1591,7 +2388,10 @@
             horizonLine.style.transform = `translateY(${pitchDeg * 1.2}px) rotate(${rollDeg}deg)`;
 
             const badge = document.getElementById('status-badge');
-            if (leftWingBroken || rightWingBroken) {
+            if (activeMissile) {
+                badge.className = 'status-badge badge-threat';
+                badge.innerText = 'MISSILE LOCK!';
+            } else if (leftWingBroken || rightWingBroken) {
                 badge.className = 'status-badge badge-damaged';
                 badge.innerText = 'WING DAMAGED!';
             } else if (airspeed < activeConfig.stallSpeed && !isGrounded) {
@@ -1604,16 +2404,20 @@
                 badge.className = 'status-badge badge-airborne';
                 badge.innerText = 'AIRBORNE';
             }
+
+            if (isMapOpen) {
+                renderMap();
+            }
         }
 
         function init() {
             const container = document.getElementById('canvas-container');
 
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb);
-            scene.fog = new THREE.FogExp2(0xa0c8f0, 0.00028);
+            scene.background = daySkyColor.clone();
+            scene.fog = new THREE.FogExp2(0xa0c8f0, 0.00015);
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 8000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 20000);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
