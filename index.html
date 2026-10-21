@@ -2623,26 +2623,82 @@
         }
 
 
-        // Runs INSIDE the game page. raw.githubusercontent.com blocks <script src>
-        // (text/plain + nosniff), so scripts the game adds at runtime (Unity, Construct, etc.)
-        // are fetched and re-served as blob: URLs with a JavaScript type instead.
+        // Runs INSIDE the game page. Three jobs:
+        //  1. document.URL -> repo folder (blob: URLs can't be a base for new URL(x, document.URL), which Unity does)
+        //  2. fetch(): files ending .unityweb/.br/.gz/... are decompressed in the browser, because
+        //     GitHub's raw host doesn't send Content-Encoding the way a real game server would
+        //  3. <script src>: scripts added at runtime are fetched and re-served as blob: JavaScript,
+        //     because raw.githubusercontent.com labels them text/plain + nosniff
         function gameShim() {
-            // blob: URLs can't be used as a base for new URL(x, document.URL) (Unity does this),
-            // so report the repo folder (the <base> href) as the document URL instead.
             try {
                 Object.defineProperty(document, 'URL', { configurable: true, get: function () { return document.baseURI; } });
             } catch (e) {}
+
             var RAW = 'https://raw.githubusercontent.com/';
+            var COMPRESSED = /\.(unityweb|br|gz|jsgz|datagz|memgz)$/i;
+            var origFetch = window.fetch.bind(window);
+
+            function absUrl(u) {
+                try { return new URL(u, document.baseURI); } catch (e) { return null; }
+            }
+            function guessType(path) {
+                if (/\.wasm(\.|$)/i.test(path)) return 'application/wasm';
+                if (/\.js(\.|$)/i.test(path)) return 'text/javascript';
+                return 'application/octet-stream';
+            }
+            function looksPlain(u8) {
+                // already-decompressed wasm, Unity data bundle, or text/JS
+                if (u8[0] === 0x00 && u8[1] === 0x61 && u8[2] === 0x73 && u8[3] === 0x6d) return true;
+                if (u8[0] === 0x55 && u8[1] === 0x6e && u8[2] === 0x69 && u8[3] === 0x74) return true; // "Unit"
+                for (var i = 0; i < Math.min(32, u8.length); i++) {
+                    var c = u8[i];
+                    if (c > 126 || (c < 32 && c !== 9 && c !== 10 && c !== 13)) return false;
+                }
+                return true;
+            }
+            async function inflate(buf, path) {
+                var u8 = new Uint8Array(buf);
+                var fmt = null;
+                if (u8[0] === 0x1f && u8[1] === 0x8b) fmt = 'gzip';
+                else if (!looksPlain(u8) && /\.(br|unityweb)$/i.test(path)) fmt = 'brotli';
+                if (!fmt) return buf;
+                try {
+                    var stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream(fmt));
+                    return await new Response(stream).arrayBuffer();
+                } catch (e) {
+                    console.error('Could not decompress ' + path + ' (' + fmt + '): ' + e.message);
+                    return buf;
+                }
+            }
+
+            window.fetch = function (input, init) {
+                var url = typeof input === 'string' ? input : (input && input.url) || String(input);
+                var abs = absUrl(url);
+                var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+                if (!abs || method !== 'GET' || !COMPRESSED.test(abs.pathname)) return origFetch(input, init);
+                return origFetch(input, init).then(function (res) {
+                    if (!res.ok) return res;
+                    return res.arrayBuffer().then(function (buf) { return inflate(buf, abs.pathname); }).then(function (out) {
+                        return new Response(out, {
+                            status: 200,
+                            headers: { 'Content-Type': guessType(abs.pathname), 'Content-Length': String(out.byteLength) }
+                        });
+                    });
+                });
+            };
+
             var desc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
             Object.defineProperty(HTMLScriptElement.prototype, 'src', {
                 configurable: true,
                 enumerable: true,
                 get: function () { return desc.get.call(this); },
                 set: function (v) {
-                    var el = this, abs;
-                    try { abs = new URL(v, document.baseURI).href; } catch (e) { desc.set.call(el, v); return; }
-                    if (abs.indexOf(RAW) !== 0 || el.type === 'module') { desc.set.call(el, v); return; }
-                    fetch(abs)
+                    var el = this, abs = absUrl(v);
+                    if (!abs || el.type === 'module' || !(abs.href.indexOf(RAW) === 0 || COMPRESSED.test(abs.pathname))) {
+                        desc.set.call(el, v);
+                        return;
+                    }
+                    window.fetch(abs.href)
                         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
                         .then(function (b) {
                             desc.set.call(el, URL.createObjectURL(new Blob([b], { type: 'text/javascript' })));
