@@ -2688,27 +2688,39 @@
             };
 
             var desc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+            var setAttr = Element.prototype.setAttribute;
+
+            // commit(v) performs the real assignment; it never goes back through our own
+            // setters, so games that wrap the same setters (e.g. bundled loaders) can't loop.
+            function patchedScriptSrc(el, v, commit) {
+                var abs = absUrl(v);
+                if (!abs || el.type === 'module' || !(abs.href.indexOf(RAW) === 0 || COMPRESSED.test(abs.pathname))) {
+                    commit(v);
+                    return;
+                }
+                window.fetch(abs.href)
+                    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+                    .then(function (b) {
+                        commit(URL.createObjectURL(new Blob([b], { type: 'text/javascript' })));
+                    })
+                    .catch(function () { commit(v); });
+            }
+
             Object.defineProperty(HTMLScriptElement.prototype, 'src', {
                 configurable: true,
                 enumerable: true,
                 get: function () { return desc.get.call(this); },
                 set: function (v) {
-                    var el = this, abs = absUrl(v);
-                    if (!abs || el.type === 'module' || !(abs.href.indexOf(RAW) === 0 || COMPRESSED.test(abs.pathname))) {
-                        desc.set.call(el, v);
-                        return;
-                    }
-                    window.fetch(abs.href)
-                        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
-                        .then(function (b) {
-                            desc.set.call(el, URL.createObjectURL(new Blob([b], { type: 'text/javascript' })));
-                        })
-                        .catch(function () { desc.set.call(el, v); });
+                    var el = this;
+                    patchedScriptSrc(el, v, function (x) { desc.set.call(el, x); });
                 }
             });
-            var setAttr = Element.prototype.setAttribute;
             Element.prototype.setAttribute = function (n, v) {
-                if (this instanceof HTMLScriptElement && String(n).toLowerCase() === 'src') { this.src = v; return; }
+                if (this instanceof HTMLScriptElement && String(n).toLowerCase() === 'src') {
+                    var el = this;
+                    patchedScriptSrc(el, v, function (x) { setAttr.call(el, n, x); });
+                    return;
+                }
                 return setAttr.call(this, n, v);
             };
         }
