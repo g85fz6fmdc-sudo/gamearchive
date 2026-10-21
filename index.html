@@ -2660,11 +2660,20 @@
         async function buildGameHtml(url) {
             const html = await fetchText(url);
             const doc = new DOMParser().parseFromString(html, 'text/html');
-            const dir = new URL('./', url).href;
 
-            // so relative images / fetch() / audio / etc. resolve against the repo
-            const base = doc.createElement('base');
-            base.href = dir;
+            // Some games ship their own <base href> (e.g. pointing at a CDN). Keep it (made
+            // absolute) instead of overriding it, otherwise their assets resolve to the wrong place.
+            let base = doc.querySelector('base[href]');
+            let dir;
+            if (base) {
+                dir = new URL(base.getAttribute('href'), url).href;
+                base.setAttribute('href', dir);
+            } else {
+                // so relative images / fetch() / audio / etc. resolve against the repo
+                dir = new URL('./', url).href;
+                base = doc.createElement('base');
+                base.href = dir;
+            }
             doc.head.insertBefore(base, doc.head.firstChild);
 
             // make runtime-added scripts work too (must run before the game's own code)
