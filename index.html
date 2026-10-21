@@ -2622,6 +2622,36 @@
             return res.text();
         }
 
+
+        // Runs INSIDE the game page. raw.githubusercontent.com blocks <script src>
+        // (text/plain + nosniff), so scripts the game adds at runtime (Unity, Construct, etc.)
+        // are fetched and re-served as blob: URLs with a JavaScript type instead.
+        function gameShim() {
+            var RAW = 'https://raw.githubusercontent.com/';
+            var desc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+            Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+                configurable: true,
+                enumerable: true,
+                get: function () { return desc.get.call(this); },
+                set: function (v) {
+                    var el = this, abs;
+                    try { abs = new URL(v, document.baseURI).href; } catch (e) { desc.set.call(el, v); return; }
+                    if (abs.indexOf(RAW) !== 0 || el.type === 'module') { desc.set.call(el, v); return; }
+                    fetch(abs)
+                        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+                        .then(function (b) {
+                            desc.set.call(el, URL.createObjectURL(new Blob([b], { type: 'text/javascript' })));
+                        })
+                        .catch(function () { desc.set.call(el, v); });
+                }
+            });
+            var setAttr = Element.prototype.setAttribute;
+            Element.prototype.setAttribute = function (n, v) {
+                if (this instanceof HTMLScriptElement && String(n).toLowerCase() === 'src') { this.src = v; return; }
+                return setAttr.call(this, n, v);
+            };
+        }
+
         async function buildGameHtml(url) {
             const html = await fetchText(url);
             const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -2631,6 +2661,11 @@
             const base = doc.createElement('base');
             base.href = dir;
             doc.head.insertBefore(base, doc.head.firstChild);
+
+            // make runtime-added scripts work too (must run before the game's own code)
+            const shim = doc.createElement('script');
+            shim.textContent = '(' + gameShim.toString() + ')();';
+            base.after(shim);
 
             // raw.githubusercontent sends nosniff + text/plain, which blocks external
             // .js/.css, so inline them (best effort; failures are left as-is)
