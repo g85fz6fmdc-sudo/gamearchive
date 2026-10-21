@@ -2627,6 +2627,11 @@
         // (text/plain + nosniff), so scripts the game adds at runtime (Unity, Construct, etc.)
         // are fetched and re-served as blob: URLs with a JavaScript type instead.
         function gameShim() {
+            // blob: URLs can't be used as a base for new URL(x, document.URL) (Unity does this),
+            // so report the repo folder (the <base> href) as the document URL instead.
+            try {
+                Object.defineProperty(document, 'URL', { configurable: true, get: function () { return document.baseURI; } });
+            } catch (e) {}
             var RAW = 'https://raw.githubusercontent.com/';
             var desc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
             Object.defineProperty(HTMLScriptElement.prototype, 'src', {
