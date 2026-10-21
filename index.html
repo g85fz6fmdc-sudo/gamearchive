@@ -2630,7 +2630,22 @@
         //  3. <script src>: scripts added at runtime are fetched and re-served as blob: JavaScript,
         //     because raw.githubusercontent.com labels them text/plain + nosniff
         function gameShim() {
+            // Remember the repo folder now, while the <base> tag still exists. Many bundled games
+            // call document.open()/document.write(), which throws that tag away; without this,
+            // document.baseURI falls back to the blob: address and every new URL(x, document.baseURI)
+            // (Ruffle does this for its .wasm file) fails with "not a valid URL".
+            var BASE_HREF = document.baseURI;
             try {
+                Object.defineProperty(document, 'baseURI', {
+                    configurable: true,
+                    get: function () {
+                        var b = document.querySelector('base[href]');
+                        if (b) {
+                            try { return new URL(b.getAttribute('href'), BASE_HREF).href; } catch (e) {}
+                        }
+                        return BASE_HREF;
+                    }
+                });
                 Object.defineProperty(document, 'URL', { configurable: true, get: function () { return document.baseURI; } });
             } catch (e) {}
 
