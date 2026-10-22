@@ -2604,11 +2604,18 @@
         // raw.githubusercontent.com serves HTML as text/plain, so we fetch the
         // source ourselves, patch it, and hand the iframe a real text/html blob.
         let currentBlobUrl = null;
+        let scriptBlobUrls = [];
         let loadToken = 0;
+
+        function revokeScriptBlobs() {
+            scriptBlobUrls.forEach(u => URL.revokeObjectURL(u));
+            scriptBlobUrls = [];
+        }
 
         function resetGameFrame() {
             loadToken++;
             if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
+            revokeScriptBlobs();
             gameFrame.src = 'about:blank';
         }
 
@@ -2768,8 +2775,17 @@
                 const src = new URL(el.getAttribute('src'), dir).href;
                 if (!src.startsWith('https://raw.githubusercontent.com/')) return;
                 jobs.push(fetchText(src).then(code => {
-                    el.removeAttribute('src');
-                    el.textContent = code.replace(/<\/script/gi, '<\\/script');
+                    if (el.hasAttribute('defer') || el.hasAttribute('async')) {
+                        // inlining would make these run immediately, so keep them as real
+                        // external scripts (blob: URL with a JavaScript type) to keep defer/async timing
+                        const u = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+                        scriptBlobUrls.push(u);
+                        el.removeAttribute('integrity');
+                        el.setAttribute('src', u);
+                    } else {
+                        el.removeAttribute('src');
+                        el.textContent = code.replace(/<\/script/gi, '<\\/script');
+                    }
                 }).catch(() => {}));
             });
             doc.querySelectorAll('link[rel~="stylesheet"][href]').forEach(el => {
@@ -2789,6 +2805,7 @@
         async function loadGame(url) {
             const token = ++loadToken;
             if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
+            revokeScriptBlobs();
             gameFrame.src = 'about:blank';
             try {
                 const html = await buildGameHtml(url);
