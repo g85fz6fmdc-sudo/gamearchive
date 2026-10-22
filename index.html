@@ -1845,10 +1845,6 @@
                 <span class="play-btn-pill">Play &#9654;</span>
             </a>
 
-            <a href="https://raw.githubusercontent.com/g85fz6fmdc-sudo/html_games/main/snowball-io.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
-                <span class="font-bold text-lg leading-snug pr-3">Snowball.io</span>
-                <span class="play-btn-pill">Play &#9654;</span>
-            </a>
 
             <a href="https://raw.githubusercontent.com/g85fz6fmdc-sudo/html_games/main/soccer-bros.html" class="game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all">
                 <span class="font-bold text-lg leading-snug pr-3">Soccer Bros</span>
@@ -2812,6 +2808,8 @@
 
         gameCards.forEach(card => {
             card.addEventListener('click', (e) => {
+                // external cards just open the publisher's own site in a new tab
+                if (card.dataset.external) return;
                 e.preventDefault();
                 const gameUrl = card.getAttribute('href');
                 const gameTitle = card.querySelector('span.font-bold').textContent;
@@ -2823,7 +2821,7 @@
         });
 
         document.getElementById('random-card').addEventListener('click', () => {
-            const pool = Array.from(gameCards).filter(c => c.style.display !== 'none');
+            const pool = Array.from(gameCards).filter(c => c.style.display !== 'none' && !c.dataset.external);
             if (pool.length === 0) return;
             pool[Math.floor(Math.random() * pool.length)].click();
         });
