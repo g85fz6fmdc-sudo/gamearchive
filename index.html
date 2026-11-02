@@ -228,9 +228,247 @@
             border-color: var(--accent-color);
             color: var(--accent-color);
         }
+
+        /* ===== Edit Mode / custom background / user themes ===== */
+        #custom-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            display: none;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            pointer-events: none;
+        }
+
+
+        .em-tools {
+            display: none;
+            position: absolute;
+            top: -13px;
+            right: 8px;
+            gap: 4px;
+            z-index: 5;
+        }
+        .em-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.12s ease, filter 0.12s ease;
+        }
+        .em-btn:hover { transform: scale(1.15); filter: brightness(1.2); }
+
+        .edit-mode .em-item:hover > .em-tools,
+        .edit-mode .em-item.em-sel > .em-tools { display: flex; }
+        .em-tools { flex-wrap: wrap; justify-content: flex-end; max-width: 340px; top: auto; bottom: 100%; padding-bottom: 6px; right: 0; }
+        .notice-box .em-tools { bottom: auto; top: 100%; padding-bottom: 0; padding-top: 6px; right: auto; left: 0; justify-content: flex-start; }
+        .em-btn { width: auto; min-width: 28px; padding: 0 6px; font-weight: 700; }
+
+        body { overflow-x: hidden; }
+        .em-item:not(.notice-box) { position: relative; }
+        .em-fit { width: fit-content; margin-left: auto; margin-right: auto; }
+
+        .edit-mode .em-item {
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            -webkit-user-drag: none;
+            outline: 2px dashed rgba(255, 255, 255, 0.22);
+            outline-offset: 3px;
+        }
+        .edit-mode .notice-box { pointer-events: auto; }
+        .edit-mode #search-input { pointer-events: none; }
+        .edit-mode .em-item:hover { z-index: 25 !important; }
+        .em-item.em-dragging {
+            z-index: 25 !important;
+            cursor: grabbing;
+            transition: none !important;
+            opacity: 0.9;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+        }
+        body.em-moving, body.em-moving * { cursor: grabbing !important; user-select: none !important; }
+
+        body:not(.edit-mode) .em-item.em-disabled { display: none !important; }
+        .edit-mode .em-item.em-disabled { opacity: 0.4; filter: grayscale(1); }
+
+        #em-color-pop, #em-text-pop { max-height: calc(100vh - 16px); overflow-y: auto; }
+        #em-text-pop {
+            position: fixed;
+            z-index: 160;
+            width: 310px;
+            padding: 14px;
+            border-radius: 12px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.55);
+            display: none;
+        }
+        #em-text-pop.show { display: block; }
+        #em-tp-controls.off { opacity: 0.35; pointer-events: none; }
+        .em-chip {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text-color);
+            cursor: pointer;
+        }
+        .em-chip.on { background-color: var(--accent-color); color: #000; border-color: transparent; }
+        .em-pill-btn.active { background-color: var(--accent-color); color: #000; }
+
+        #em-add-card {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-style: dashed;
+            color: var(--accent-color);
+            cursor: pointer;
+            min-height: 72px;
+        }
+        .edit-mode #em-add-card { display: flex; }
+
+        #em-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translate(-50%, 20px);
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            font-size: 0.85rem;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            max-width: calc(100% - 24px);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #em-bar.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+
+        .em-pill-btn {
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: filter 0.15s ease;
+        }
+        .em-pill-btn:hover { filter: brightness(1.25); }
+        .em-pill-btn.primary {
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            border-color: transparent;
+        }
+        .em-pill-btn.danger { background-color: #dc2626; color: #fff; border-color: transparent; }
+
+        .em-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .em-modal-backdrop.show { opacity: 1; pointer-events: auto; }
+        .em-modal {
+            width: 100%;
+            max-width: 440px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+        }
+        .em-modal.warn { border-color: #f59e0b; }
+        .em-modal h3 { font-size: 1.15rem; font-weight: 800; margin-bottom: 8px; }
+        .em-modal p { font-size: 0.88rem; line-height: 1.5; opacity: 0.85; margin-bottom: 10px; }
+        .em-input {
+            width: 100%;
+            padding: 9px 11px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background-color: rgba(0, 0, 0, 0.25);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+        .em-input:focus { outline: 2px solid var(--accent-color); outline-offset: 0; }
+
+        #em-color-pop {
+            position: fixed;
+            z-index: 150;
+            width: 230px;
+            padding: 14px;
+            border-radius: 12px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.55);
+            display: none;
+        }
+        #em-color-pop.show { display: block; }
+
+        #em-toast {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translate(-50%, -20px);
+            z-index: 300;
+            padding: 10px 16px;
+            border-radius: 10px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            max-width: calc(100% - 24px);
+            text-align: center;
+        }
+        #em-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        .ut-row button { transition: filter 0.15s ease; }
+        .ut-row button:hover { filter: brightness(1.2); }
     </style>
 </head>
 <body>
+
+    <div id="custom-bg"></div>
 
     <div class="notice-box theme-card">Games take some time to load they aren't broken</div>
 
@@ -2292,6 +2530,39 @@
 
         <div class="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
 
+            <div id="em-section" class="p-4 rounded-xl border" style="border-color: var(--accent-color); background-color: rgba(255,255,255,0.03);">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wider opacity-70">Edit Mode</label>
+                    <span id="em-status" class="text-xs font-extrabold opacity-70">OFF</span>
+                </div>
+                <p class="text-xs opacity-70 mb-3">Turn the page into a sandbox: drag anything anywhere, hide, resize or rotate it, recolor single cards, restyle single words, and add links to games on other websites.</p>
+                <button id="em-toggle" type="button" class="w-full py-2.5 rounded-lg text-sm font-bold transition hover:brightness-110" style="background-color: var(--btn-bg); color: var(--btn-text);">Enable Edit Mode</button>
+
+                <div class="flex items-center justify-between gap-3 mt-4">
+                    <span class="text-sm font-medium">Shortcut key</span>
+                    <button id="em-keybind-btn" class="keybind-btn" type="button">=</button>
+                </div>
+                <div class="flex items-center justify-between mt-2 gap-2">
+                    <p id="em-keybind-help" class="text-xs opacity-60">Click the key, then press a new one. Esc cancels.</p>
+                    <button id="em-keybind-reset" type="button" class="text-xs font-semibold opacity-70 hover:opacity-100 transition underline flex-shrink-0">Reset</button>
+                </div>
+
+                <button id="em-add-link-btn" type="button" class="hidden w-full mt-4 py-2 rounded-lg text-sm font-semibold border transition hover:brightness-125" style="border-color: var(--card-border);">+ Add Game Link</button>
+                <button id="em-reset-layout" type="button" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Reset layout only (positions, size, rotation)</button>
+                <button id="em-reset-all" type="button" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Reset all Edit Mode changes</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">My Themes</label>
+                <div class="flex gap-2 mb-3">
+                    <input id="ut-name" type="text" maxlength="30" placeholder="Name this theme..." class="em-input flex-1 min-w-0">
+                    <button id="ut-save" type="button" class="px-3 py-2 rounded-lg text-sm font-bold flex-shrink-0 transition hover:brightness-110" style="background-color: var(--btn-bg); color: var(--btn-text);">Save</button>
+                </div>
+                <div id="ut-list" class="space-y-2"></div>
+                <p class="text-xs opacity-50 mt-2">Saves your colors, font, and background if it's a link (uploaded images are too large to store per theme).</p>
+            </div>
+
+
             <div>
                 <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Preset Themes</label>
                 <div class="grid grid-cols-3 gap-2">
@@ -2336,6 +2607,27 @@
                 <div class="color-picker-row">
                     <span class="text-sm font-medium">Play Button Text Color</span>
                     <input type="color" id="btn-text-picker" class="color-picker-input" value="#ffffff">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Background Image</label>
+                <div class="space-y-2">
+                    <label for="bg-upload" class="block w-full text-center py-2 rounded-lg text-sm font-semibold border cursor-pointer transition hover:brightness-125" style="border-color: var(--card-border);">Upload Image</label>
+                    <input type="file" id="bg-upload" accept="image/*" class="hidden">
+                    <div class="flex gap-2">
+                        <input id="bg-url-input" type="url" placeholder="...or paste an image link" class="em-input flex-1 min-w-0">
+                        <button id="bg-url-apply" type="button" class="px-3 py-2 rounded-lg text-sm font-bold flex-shrink-0 transition hover:brightness-110" style="background-color: var(--btn-bg); color: var(--btn-text);">Set</button>
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-sm font-medium">Darken background</span>
+                        <span id="bg-dim-val" class="text-xs opacity-70">30%</span>
+                    </div>
+                    <input type="range" id="bg-dim" min="0" max="80" value="30" class="w-full">
+                    <div class="flex items-center justify-between gap-2">
+                        <p id="bg-msg" class="text-xs opacity-60"></p>
+                        <button id="bg-remove" type="button" class="text-xs font-semibold opacity-70 hover:opacity-100 transition underline flex-shrink-0">Remove</button>
+                    </div>
                 </div>
             </div>
 
@@ -2408,6 +2700,92 @@
             </button>
         </div>
     </aside>
+
+    <div id="em-bar">
+        <span>&#9998; Sandbox &mdash; drag anything &middot; double-click a word to style it</span>
+        <button id="em-bar-add" type="button" class="em-pill-btn">+ Add Link</button>
+        <button id="em-bar-done" type="button" class="em-pill-btn primary">Done</button>
+    </div>
+
+    <div id="em-color-pop">
+        <div id="em-color-title" class="text-sm font-bold mb-2 truncate"></div>
+        <div class="color-picker-row"><span class="text-sm">Background</span><input type="color" id="em-c-bg" class="color-picker-input"></div>
+        <div class="color-picker-row"><span class="text-sm">Text color</span><input type="color" id="em-c-text" class="color-picker-input"></div>
+        <div class="color-picker-row" id="em-c-btn-row"><span class="text-sm">Button color</span><input type="color" id="em-c-btn" class="color-picker-input"></div>
+        <div class="mt-2">
+            <div class="flex justify-between text-sm"><span>Size</span><span id="em-x-scale-val">100%</span></div>
+            <input type="range" id="em-x-scale" min="30" max="300" step="5" value="100" class="w-full">
+        </div>
+        <div class="mt-2">
+            <div class="flex justify-between text-sm"><span>Rotation</span><span id="em-x-rot-val">0&deg;</span></div>
+            <input type="range" id="em-x-rot" min="-180" max="180" step="1" value="0" class="w-full">
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button id="em-c-reset" type="button" class="em-pill-btn flex-1">Reset</button>
+            <button id="em-c-done" type="button" class="em-pill-btn primary flex-1">Done</button>
+        </div>
+    </div>
+
+    <div id="em-text-pop">
+        <div class="text-sm font-bold mb-1">Style text</div>
+        <p class="text-xs opacity-70 mb-2">Tap the words you want to change, then pick a style. Only the selected words are affected.</p>
+        <div id="em-tp-words" class="flex flex-wrap gap-1.5 mb-3"></div>
+        <div id="em-tp-controls" class="off">
+            <label class="block text-xs font-semibold uppercase tracking-wider mb-1 opacity-70">Font</label>
+            <select id="em-tp-font" class="em-input mb-2"></select>
+            <div class="color-picker-row">
+                <span class="text-sm">Color</span>
+                <span class="flex items-center gap-2">
+                    <button id="em-tp-color-clear" type="button" class="text-xs underline opacity-70">clear</button>
+                    <input type="color" id="em-tp-color" class="color-picker-input">
+                </span>
+            </div>
+            <div class="flex justify-between text-sm mt-1"><span>Size</span><span id="em-tp-size-val">100%</span></div>
+            <input type="range" id="em-tp-size" min="50" max="400" step="5" value="100" class="w-full">
+            <div class="flex gap-2 mt-2">
+                <button id="em-tp-bold" type="button" class="em-pill-btn flex-1" style="font-weight:800">B</button>
+                <button id="em-tp-italic" type="button" class="em-pill-btn flex-1" style="font-style:italic">I</button>
+                <button id="em-tp-clear" type="button" class="em-pill-btn flex-1">Clear</button>
+            </div>
+        </div>
+        <label class="block text-xs font-semibold uppercase tracking-wider mt-4 mb-1 opacity-70">Edit text</label>
+        <input id="em-tp-text" type="text" maxlength="120" class="em-input">
+        <p class="text-xs opacity-50 mt-1">Changing the text clears its word styles.</p>
+        <div class="flex gap-2 mt-3">
+            <button id="em-tp-restore" type="button" class="em-pill-btn flex-1">Restore original</button>
+            <button id="em-tp-done" type="button" class="em-pill-btn primary flex-1">Done</button>
+        </div>
+    </div>
+
+    <div id="em-warning" class="em-modal-backdrop">
+        <div class="em-modal warn" role="dialog" aria-modal="true" aria-labelledby="em-warning-title">
+            <h3 id="em-warning-title">&#9888;&#65039; Warning: Edit Mode</h3>
+            <p><strong>You can break things if you aren't careful.</strong> Edit Mode turns the page into a sandbox: you can drag anything anywhere (even half off-screen), hide things, resize and rotate them, restyle individual words, and add your own links. It's easy to bury a game, scramble your layout, or pick colors that make things unreadable.</p>
+            <p>Everything you change is saved in this browser. If something goes wrong, use <strong>Reset all Edit Mode changes</strong> in Settings to restore the original page.</p>
+            <div class="flex gap-2 justify-end mt-4">
+                <button id="em-warn-cancel" type="button" class="em-pill-btn">Cancel</button>
+                <button id="em-warn-ok" type="button" class="em-pill-btn danger">I understand, enable</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="em-link-modal" class="em-modal-backdrop">
+        <div class="em-modal" role="dialog" aria-modal="true" aria-labelledby="em-link-heading">
+            <h3 id="em-link-heading">Add Game Link</h3>
+            <p>Adds a card that opens a game on another website in a new tab.</p>
+            <div class="space-y-2">
+                <input id="em-link-title" type="text" maxlength="60" placeholder="Game name" class="em-input">
+                <input id="em-link-url" type="text" placeholder="https://example.com/game" class="em-input">
+                <p id="em-link-err" class="text-xs" style="color:#f87171; margin:0;"></p>
+            </div>
+            <div class="flex gap-2 justify-end mt-4">
+                <button id="em-link-cancel" type="button" class="em-pill-btn">Cancel</button>
+                <button id="em-link-save" type="button" class="em-pill-btn primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="em-toast"></div>
 
     <div id="close-hint" class="close-hint"></div>
 
@@ -2582,11 +2960,11 @@
             const query = e.target.value.toLowerCase().trim();
             let visibleCount = 0;
 
-            gameCards.forEach(card => {
+            document.querySelectorAll('.game-card').forEach(card => {
                 const titleText = card.querySelector('span.font-bold').textContent.toLowerCase();
                 if (titleText.includes(query)) {
                     card.style.display = 'flex';
-                    visibleCount++;
+                    if (!card.classList.contains('em-disabled') || document.body.classList.contains('edit-mode')) visibleCount++;
                 } else {
                     card.style.display = 'none';
                 }
@@ -2838,7 +3216,7 @@
         });
 
         document.getElementById('random-card').addEventListener('click', () => {
-            const pool = Array.from(gameCards).filter(c => c.style.display !== 'none' && !c.dataset.external);
+            const pool = Array.from(document.querySelectorAll('.game-card')).filter(c => c.style.display !== 'none' && !c.dataset.external && !c.classList.contains('em-disabled'));
             if (pool.length === 0) return;
             pool[Math.floor(Math.random() * pool.length)].click();
         });
@@ -2981,6 +3359,1023 @@
         });
 
         window.addEventListener('DOMContentLoaded', initSettings);
+
+        // ================= EDIT MODE (SANDBOX) / USER THEMES / CUSTOM BACKGROUND =================
+        (function () {
+            const ED_KEY = 'gamehub_edit_data';
+            const EM_KEY = 'gamehub_edit_key';
+            const THEMES_KEY = 'gamehub_user_themes';
+            const BG_KEY = 'gamehub_custom_bg';
+            const DEFAULT_EDIT_KEY = '=';
+
+            const $ = id => document.getElementById(id);
+            const grid = $('game-grid');
+
+            // ---------- helpers ----------
+            let toastTimer;
+            function toast(msg) {
+                const t = $('em-toast');
+                t.textContent = msg;
+                t.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+            }
+            function lsGet(k, fallback) {
+                try {
+                    const v = localStorage.getItem(k);
+                    return v === null ? fallback : JSON.parse(v);
+                } catch (e) { return fallback; }
+            }
+            function trySave(k, v) {
+                try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; }
+            }
+            function lsSet(k, v) {
+                const ok = trySave(k, v);
+                if (!ok) toast('Could not save: browser storage is full or blocked.');
+                return ok;
+            }
+            function normalizeUrl(raw) {
+                raw = (raw || '').trim();
+                if (!raw) return null;
+                if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) raw = 'https://' + raw;
+                try {
+                    const u = new URL(raw);
+                    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null;
+                } catch (e) { return null; }
+            }
+            function toHex(rgb) {
+                const m = (rgb || '').match(/\d+(\.\d+)?/g);
+                if (!m || m.length < 3) return '#000000';
+                return '#' + m.slice(0, 3).map(n => Math.round(+n).toString(16).padStart(2, '0')).join('');
+            }
+            function rerunSearch() { searchInput.dispatchEvent(new Event('input')); }
+            function placePop(pop, r) {
+                pop.classList.add('show');
+                const h = pop.offsetHeight || 300;
+                const w = pop.offsetWidth || 240;
+                let top = r.bottom + 8;
+                if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+                if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+                pop.style.top = top + 'px';
+                pop.style.left = Math.max(8, Math.min(r.left - 80, window.innerWidth - w - 8)) + 'px';
+            }
+
+            // ---------- stored edit data ----------
+            let ed = Object.assign({ disabled: [], order: [], colors: {}, custom: [], pos: {}, xf: {}, z: [], text: {} }, lsGet(ED_KEY, {}));
+            ['disabled', 'order', 'custom', 'z'].forEach(k => { if (!Array.isArray(ed[k])) ed[k] = []; });
+            ['colors', 'pos', 'xf', 'text'].forEach(k => { if (!ed[k] || typeof ed[k] !== 'object' || Array.isArray(ed[k])) ed[k] = {}; });
+            const saveEd = () => lsSet(ED_KEY, ed);
+
+            let editOn = false;
+
+            // ---------- fonts ----------
+            const FONT_SET = new Set(Array.from(document.querySelectorAll('#font-select option')).map(o => o.value));
+            const loadedFonts = new Set();
+            function ensureFont(name) {
+                if (!name || !FONT_SET.has(name) || loadedFonts.has(name) || name === 'Monospace' || name === 'Courier New') return;
+                loadedFonts.add(name);
+                const l = document.createElement('link');
+                l.rel = 'stylesheet';
+                l.href = 'https://fonts.googleapis.com/css2?family=' + name.replace(/ /g, '+') + ':wght@400;700&display=swap';
+                document.head.appendChild(l);
+            }
+            function fontCss(name) { return name === 'Monospace' ? 'monospace' : "'" + name + "', sans-serif"; }
+
+            // ---------- per-word text styling ----------
+            function sameSt(a, b) {
+                const ka = Object.keys(a), kb = Object.keys(b);
+                return ka.length === kb.length && ka.every(k => a[k] === b[k]);
+            }
+            function setField(marks, s, e, field, val) {
+                const pts = new Set([s, e]);
+                marks.forEach(m => { pts.add(m.s); pts.add(m.e); });
+                const arr = Array.from(pts).sort((x, y) => x - y);
+                const out = [];
+                for (let i = 0; i < arr.length - 1; i++) {
+                    const a = arr[i], b = arr[i + 1];
+                    const base = marks.find(m => m.s <= a && m.e >= b);
+                    const st = base ? Object.assign({}, base.st) : {};
+                    if (a >= s && b <= e) {
+                        if (val === null || val === undefined) delete st[field]; else st[field] = val;
+                    }
+                    if (Object.keys(st).length) {
+                        const last = out[out.length - 1];
+                        if (last && last.e === a && sameSt(last.st, st)) last.e = b;
+                        else out.push({ s: a, e: b, st });
+                    }
+                }
+                return out;
+            }
+            function styleSpan(sp, st) {
+                if (st.font && FONT_SET.has(st.font)) { ensureFont(st.font); sp.style.fontFamily = fontCss(st.font); }
+                if (typeof st.color === 'string' && /^#[0-9a-f]{6}$/i.test(st.color)) sp.style.color = st.color;
+                if (typeof st.size === 'number' && st.size > 0) sp.style.fontSize = (st.size / 100) + 'em';
+                if (st.b) sp.style.fontWeight = '800';
+                if (st.i) sp.style.fontStyle = 'italic';
+            }
+            function textEl(item) { return item.querySelector(':scope > [data-tkey]'); }
+            function currentText(item) {
+                const d = ed.text[item.dataset.key];
+                return (d && typeof d.t === 'string') ? d.t : textEl(item).dataset.orig0;
+            }
+            function renderText(item) {
+                const el = textEl(item);
+                if (!el) return;
+                const d = ed.text[item.dataset.key] || {};
+                const txt = currentText(item);
+                const marks = (Array.isArray(d.m) ? d.m : [])
+                    .filter(m => m && m.st && m.s >= 0 && m.e > m.s && m.e <= txt.length)
+                    .sort((x, y) => x.s - y.s);
+                el.textContent = '';
+                let pos = 0;
+                marks.forEach(m => {
+                    if (m.s < pos) return;
+                    if (m.s > pos) el.append(document.createTextNode(txt.slice(pos, m.s)));
+                    const sp = document.createElement('span');
+                    sp.className = 'em-mark';
+                    sp.textContent = txt.slice(m.s, m.e);
+                    styleSpan(sp, m.st);
+                    el.append(sp);
+                    pos = m.e;
+                });
+                if (pos < txt.length) el.append(document.createTextNode(txt.slice(pos)));
+            }
+            function labelOf(item) {
+                return item.dataset.label || (textEl(item) ? textEl(item).textContent : 'Item');
+            }
+
+            // ---------- items (anything movable) ----------
+            const addCard = document.createElement('button');
+            addCard.type = 'button';
+            addCard.id = 'em-add-card';
+            addCard.className = 'theme-card p-5 rounded-xl font-bold text-lg w-full';
+            addCard.textContent = '+ Add Game Link';
+            grid.appendChild(addCard);
+
+            function makeCustomCard(item) {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.dataset.external = '1';
+                a.dataset.custom = item.id;
+                a.className = 'game-card theme-card group p-5 rounded-xl flex items-center justify-between transition-all';
+                const t = document.createElement('span');
+                t.className = 'font-bold text-lg leading-snug pr-3';
+                t.textContent = item.title;
+                const p = document.createElement('span');
+                p.className = 'play-btn-pill';
+                p.innerHTML = 'Open &#8599;';
+                a.append(t, p);
+                return a;
+            }
+
+            const usedKeys = new Set();
+            function assignKey(c) {
+                let k = c.dataset.custom ? 'custom:' + c.dataset.custom : c.getAttribute('href');
+                const base = k;
+                let n = 2;
+                while (usedKeys.has(k)) k = base + '#' + (n++);
+                usedKeys.add(k);
+                c.dataset.key = k;
+            }
+
+            function allItems() { return Array.from(document.querySelectorAll('.em-item')); }
+            function allCards() { return Array.from(grid.querySelectorAll('.game-card')); }
+
+            function addTools(item) {
+                if (item.querySelector(':scope > .em-tools')) return;
+                const bar = document.createElement('span');
+                bar.className = 'em-tools';
+                const mk = (act, label, title) => {
+                    const b = document.createElement('span');
+                    b.className = 'em-btn';
+                    b.dataset.act = act;
+                    b.title = title;
+                    b.textContent = label;
+                    bar.appendChild(b);
+                };
+                if (item.classList.contains('game-card')) {
+                    mk('left', '\u25C0', 'Move earlier in the grid order');
+                    mk('right', '\u25B6', 'Move later in the grid order');
+                }
+                if (textEl(item)) mk('text', 'Aa', 'Style or rename text (or double-click a word)');
+                mk('color', '\uD83C\uDFA8', 'Colors, size and rotation');
+                mk('bottom', '\u2913', 'Send to the bottom of the page');
+                mk('pos', '\u21BA', 'Reset position');
+                mk('toggle', '\uD83D\uDEAB', 'Hide this');
+                if (item.dataset.custom) {
+                    mk('edit', '\u270E', 'Edit link');
+                    mk('delete', '\uD83D\uDDD1', 'Delete link');
+                }
+                item.appendChild(bar);
+            }
+
+            function applyColors(item) {
+                const c = ed.colors[item.dataset.key] || {};
+                const se = item._styleEl || item;
+                if (se.dataset.ob === undefined) { se.dataset.ob = se.style.backgroundColor; se.dataset.oc = se.style.color; }
+                se.style.backgroundColor = c.bg || se.dataset.ob;
+                se.style.color = c.text || se.dataset.oc;
+                const pill = item.querySelector(':scope > .play-btn-pill');
+                if (pill) pill.style.backgroundColor = c.btn || '';
+            }
+
+            function applyXf(item) {
+                const k = item.dataset.key;
+                const p = ed.pos[k];
+                const x = ed.xf[k];
+                item.style.translate = (p && isFinite(p.x) && isFinite(p.y)) ? p.x + 'px ' + p.y + 'px' : '';
+                item.style.rotate = (x && x.r) ? x.r + 'deg' : '';
+                item.style.scale = (x && x.s && x.s !== 1) ? String(x.s) : '';
+                const zi = ed.z.indexOf(k);
+                item.style.zIndex = zi >= 0 ? String(5 + Math.min(zi, 9)) : '';
+            }
+
+            function applyDisabled(item) {
+                const off = ed.disabled.includes(item.dataset.key);
+                item.classList.toggle('em-disabled', off);
+                const b = item.querySelector(':scope > .em-tools > .em-btn[data-act="toggle"]');
+                if (b) { b.textContent = off ? '\uD83D\uDC41' : '\uD83D\uDEAB'; b.title = off ? 'Show this' : 'Hide this'; }
+            }
+
+            function registerItem(item, o) {
+                o = o || {};
+                item.classList.add('em-item');
+                if (o.key) item.dataset.key = o.key;
+                if (o.label) item.dataset.label = o.label;
+                if (o.fit) item.classList.add('em-fit');
+                if (o.styleEl) item._styleEl = o.styleEl;
+                let t = null;
+                if (o.wrap) {
+                    t = document.createElement('span');
+                    while (item.firstChild) t.appendChild(item.firstChild);
+                    item.appendChild(t);
+                } else if (o.textSel) {
+                    t = item.querySelector(':scope > span.font-bold');
+                }
+                if (t) { t.dataset.tkey = '1'; t.dataset.orig0 = t.textContent; }
+                addTools(item);
+                applyColors(item);
+                applyXf(item);
+                applyDisabled(item);
+                if (ed.text[item.dataset.key]) renderText(item);
+                if (editOn) item.setAttribute('draggable', 'false');
+            }
+
+            function setupCard(card) {
+                assignKey(card);
+                registerItem(card, { textSel: true });
+            }
+
+            function saveOrder() {
+                ed.order = allCards().map(c => c.dataset.key);
+                saveEd();
+            }
+            function applyOrder() {
+                const cards = allCards();
+                const map = new Map(cards.map(c => [c.dataset.key, c]));
+                const seq = [];
+                ed.order.forEach(k => { if (map.has(k)) { seq.push(map.get(k)); map.delete(k); } });
+                cards.forEach(c => { if (map.has(c.dataset.key)) seq.push(c); });
+                seq.forEach(c => grid.insertBefore(c, addCard));
+            }
+            function moveCard(card, dir) {
+                let sib = dir < 0 ? card.previousElementSibling : card.nextElementSibling;
+                while (sib && !sib.classList.contains('game-card')) {
+                    sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
+                }
+                if (!sib) return;
+                if (dir < 0) grid.insertBefore(card, sib); else sib.after(card);
+                saveOrder();
+                card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+            function forgetKey(k) {
+                delete ed.colors[k]; delete ed.pos[k]; delete ed.xf[k]; delete ed.text[k];
+                ed.z = ed.z.filter(x => x !== k);
+                ed.disabled = ed.disabled.filter(x => x !== k);
+            }
+
+            // ---------- init items ----------
+            ed.custom.forEach(item => {
+                const url = normalizeUrl(item && item.url);
+                if (!url || !item.id || !item.title) return;
+                item.url = url;
+                grid.insertBefore(makeCustomCard(item), addCard);
+            });
+            allCards().forEach(setupCard);
+            applyOrder();
+
+            registerItem(document.querySelector('header h1'), { key: 'ui:title', label: 'Title', wrap: true, fit: true });
+            registerItem(document.querySelector('header p'), { key: 'ui:subtitle', label: 'Subtitle', wrap: true, fit: true });
+            registerItem(searchInput.parentElement, { key: 'ui:search', label: 'Search bar', styleEl: searchInput });
+            registerItem(document.querySelector('.notice-box'), { key: 'ui:notice', label: 'Notice', wrap: true });
+            registerItem($('random-card'), { key: 'ui:random', label: 'Random Game', textSel: true });
+
+            // ---------- edit mode on/off ----------
+            const warnModal = $('em-warning');
+            const linkModal = $('em-link-modal');
+            const anyModalOpen = () => warnModal.classList.contains('show') || linkModal.classList.contains('show');
+
+            function requestEnable() {
+                warnModal.classList.add('show');
+                $('em-warn-cancel').focus();
+            }
+            function setEdit(on) {
+                editOn = on;
+                document.body.classList.toggle('edit-mode', on);
+                $('em-bar').classList.toggle('show', on);
+                $('em-toggle').textContent = on ? 'Exit Edit Mode' : 'Enable Edit Mode';
+                const st = $('em-status');
+                st.textContent = on ? 'ON' : 'OFF';
+                st.style.color = on ? 'var(--accent-color)' : '';
+                st.style.opacity = on ? '1' : '';
+                $('em-add-link-btn').classList.toggle('hidden', !on);
+                allItems().forEach(i => { if (on) i.setAttribute('draggable', 'false'); else i.removeAttribute('draggable'); });
+                if (!on) { closeColorPop(); closeTextPop(); selectItem(null); }
+                rerunSearch();
+            }
+            $('em-toggle').addEventListener('click', () => { editOn ? setEdit(false) : requestEnable(); });
+            $('em-warn-cancel').addEventListener('click', () => warnModal.classList.remove('show'));
+            $('em-warn-ok').addEventListener('click', () => {
+                warnModal.classList.remove('show');
+                setEdit(true);
+                closeSettings();
+            });
+            $('em-bar-done').addEventListener('click', () => setEdit(false));
+
+            // ---------- add / edit link ----------
+            let editingId = null;
+            function openLinkModal(id) {
+                editingId = id || null;
+                const it = id ? ed.custom.find(x => x.id === id) : null;
+                $('em-link-heading').textContent = it ? 'Edit Game Link' : 'Add Game Link';
+                $('em-link-title').value = it ? it.title : '';
+                $('em-link-url').value = it ? it.url : '';
+                $('em-link-err').textContent = '';
+                linkModal.classList.add('show');
+                $('em-link-title').focus();
+            }
+            function closeLinkModal() { linkModal.classList.remove('show'); }
+            function saveLink() {
+                const title = $('em-link-title').value.trim();
+                const url = normalizeUrl($('em-link-url').value);
+                const err = $('em-link-err');
+                if (!title) { err.textContent = 'Enter a name for the game.'; return; }
+                if (!url) { err.textContent = 'Enter a valid web link (http or https).'; return; }
+                const wasEditing = !!editingId;
+                if (editingId) {
+                    const it = ed.custom.find(x => x.id === editingId);
+                    const card = grid.querySelector('[data-custom="' + editingId + '"]');
+                    if (it && card) {
+                        it.title = title; it.url = url;
+                        card.href = url;
+                        textEl(card).dataset.orig0 = title;
+                        delete ed.text[card.dataset.key];
+                        renderText(card);
+                    }
+                } else {
+                    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                    const item = { id, title, url };
+                    ed.custom.push(item);
+                    const card = makeCustomCard(item);
+                    grid.insertBefore(card, addCard);
+                    setupCard(card);
+                    saveOrder();
+                    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+                saveEd();
+                closeLinkModal();
+                rerunSearch();
+                toast(wasEditing ? 'Link updated.' : 'Link added.');
+            }
+            $('em-link-save').addEventListener('click', saveLink);
+            $('em-link-cancel').addEventListener('click', closeLinkModal);
+            [$('em-link-title'), $('em-link-url')].forEach(i => i.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); saveLink(); }
+            }));
+            $('em-add-link-btn').addEventListener('click', () => { closeSettings(); openLinkModal(); });
+            $('em-bar-add').addEventListener('click', () => openLinkModal());
+
+            // ---------- color / size / rotation popover ----------
+            const cpop = $('em-color-pop');
+            let popItem = null;
+
+            function fillColorPop() {
+                const se = popItem._styleEl || popItem;
+                const cs = getComputedStyle(se);
+                const pill = popItem.querySelector(':scope > .play-btn-pill');
+                $('em-c-bg').value = toHex(cs.backgroundColor);
+                $('em-c-text').value = toHex(cs.color);
+                $('em-c-btn-row').style.display = pill ? '' : 'none';
+                if (pill) $('em-c-btn').value = toHex(getComputedStyle(pill).backgroundColor);
+                const x = Object.assign({ s: 1, r: 0 }, ed.xf[popItem.dataset.key]);
+                $('em-x-scale').value = Math.round(x.s * 100);
+                $('em-x-rot').value = x.r;
+                $('em-x-scale-val').textContent = Math.round(x.s * 100) + '%';
+                $('em-x-rot-val').innerHTML = x.r + '&deg;';
+            }
+            function openColorPop(item, anchor) {
+                closeTextPop();
+                popItem = item;
+                $('em-color-title').textContent = labelOf(item);
+                cpop.classList.add('show');
+                fillColorPop();
+                placePop(cpop, anchor.getBoundingClientRect());
+            }
+            function closeColorPop() { cpop.classList.remove('show'); popItem = null; }
+
+            [['em-c-bg', 'bg'], ['em-c-text', 'text'], ['em-c-btn', 'btn']].forEach(([id, field]) => {
+                $(id).addEventListener('input', e => {
+                    if (!popItem) return;
+                    const k = popItem.dataset.key;
+                    ed.colors[k] = ed.colors[k] || {};
+                    ed.colors[k][field] = e.target.value;
+                    applyColors(popItem);
+                    saveEd();
+                });
+            });
+            function setXf(patch) {
+                if (!popItem) return;
+                const k = popItem.dataset.key;
+                const cur = Object.assign({ s: 1, r: 0 }, ed.xf[k], patch);
+                if (cur.s === 1 && cur.r === 0) delete ed.xf[k]; else ed.xf[k] = cur;
+                applyXf(popItem);
+                saveEd();
+                $('em-x-scale-val').textContent = Math.round(cur.s * 100) + '%';
+                $('em-x-rot-val').innerHTML = cur.r + '&deg;';
+            }
+            $('em-x-scale').addEventListener('input', e => setXf({ s: +e.target.value / 100 }));
+            $('em-x-rot').addEventListener('input', e => setXf({ r: +e.target.value }));
+            $('em-c-reset').addEventListener('click', () => {
+                if (!popItem) return;
+                const k = popItem.dataset.key;
+                delete ed.colors[k]; delete ed.xf[k];
+                applyColors(popItem); applyXf(popItem);
+                saveEd();
+                fillColorPop();
+            });
+            $('em-c-done').addEventListener('click', closeColorPop);
+
+            // ---------- text style popover ----------
+            const tpop = $('em-text-pop');
+            let tp = null; // { item, words:[{s,e,w}], sel:Set }
+            const fontSel = $('em-tp-font');
+            fontSel.innerHTML = '<option value="">Default (page font)</option>' + $('font-select').innerHTML;
+
+            function tpWords(txt) {
+                const out = [];
+                const re = /\S+/g;
+                let m;
+                while ((m = re.exec(txt))) out.push({ s: m.index, e: m.index + m[0].length, w: m[0] });
+                return out;
+            }
+            function tpRanges() {
+                const idx = Array.from(tp.sel).sort((a, b) => a - b);
+                const ranges = [];
+                idx.forEach(i => {
+                    const w = tp.words[i];
+                    const last = ranges[ranges.length - 1];
+                    if (last && last.lastIdx === i - 1) { last.e = w.e; last.lastIdx = i; }
+                    else ranges.push({ s: w.s, e: w.e, lastIdx: i });
+                });
+                return ranges;
+            }
+            function tpStyleAt(pos) {
+                const d = ed.text[tp.item.dataset.key];
+                const m = d && d.m ? d.m.find(x => x.s <= pos && x.e > pos) : null;
+                return m ? m.st : {};
+            }
+            function tpSync() {
+                $('em-tp-controls').classList.toggle('off', tp.sel.size === 0);
+                tp.chips.forEach((c, i) => c.classList.toggle('on', tp.sel.has(i)));
+                const first = Array.from(tp.sel).sort((a, b) => a - b)[0];
+                const st = first !== undefined ? tpStyleAt(tp.words[first].s) : {};
+                fontSel.value = st.font && FONT_SET.has(st.font) ? st.font : '';
+                $('em-tp-color').value = st.color || toHex(getComputedStyle(textEl(tp.item)).color);
+                $('em-tp-size').value = st.size || 100;
+                $('em-tp-size-val').textContent = (st.size || 100) + '%';
+                $('em-tp-bold').classList.toggle('active', !!st.b);
+                $('em-tp-italic').classList.toggle('active', !!st.i);
+            }
+            function tpBuild(preIdx) {
+                const txt = currentText(tp.item);
+                tp.words = tpWords(txt);
+                tp.sel = new Set();
+                if (preIdx !== undefined && preIdx !== null && tp.words[preIdx]) tp.sel.add(preIdx);
+                const box = $('em-tp-words');
+                box.innerHTML = '';
+                tp.chips = tp.words.map((w, i) => {
+                    const c = document.createElement('button');
+                    c.type = 'button';
+                    c.className = 'em-chip';
+                    c.textContent = w.w;
+                    c.addEventListener('click', () => {
+                        if (tp.sel.has(i)) tp.sel.delete(i); else tp.sel.add(i);
+                        tpSync();
+                    });
+                    box.appendChild(c);
+                    return c;
+                });
+                $('em-tp-text').value = txt;
+                tpSync();
+            }
+            function openTextPop(item, rect, off) {
+                closeColorPop();
+                tp = { item, words: [], sel: new Set(), chips: [] };
+                let pre = null;
+                if (typeof off === 'number') {
+                    const ws = tpWords(currentText(item));
+                    for (let i = 0; i < ws.length; i++) { if (off >= ws[i].s && off <= ws[i].e) { pre = i; break; } }
+                    if (pre === null) {
+                        for (let i = ws.length - 1; i >= 0; i--) { if (ws[i].s <= off) { pre = i; break; } }
+                    }
+                }
+                tpBuild(pre);
+                placePop(tpop, rect);
+            }
+            function closeTextPop() { tpop.classList.remove('show'); tp = null; }
+
+            function tpCommit() {
+                const k = tp.item.dataset.key;
+                const d = ed.text[k];
+                if (d && (!d.m || !d.m.length) && typeof d.t !== 'string') delete ed.text[k];
+                saveEd();
+                renderText(tp.item);
+                tpSync();
+            }
+            function tpApply(field, val) {
+                if (!tp || !tp.sel.size) return;
+                const k = tp.item.dataset.key;
+                const d = ed.text[k] = ed.text[k] || {};
+                let m = Array.isArray(d.m) ? d.m : [];
+                tpRanges().forEach(r => { m = setField(m, r.s, r.e, field, val); });
+                d.m = m;
+                tpCommit();
+            }
+            fontSel.addEventListener('change', () => { if (fontSel.value) ensureFont(fontSel.value); tpApply('font', fontSel.value || null); });
+            $('em-tp-color').addEventListener('input', e => tpApply('color', e.target.value));
+            $('em-tp-color-clear').addEventListener('click', () => tpApply('color', null));
+            $('em-tp-size').addEventListener('input', e => {
+                const v = +e.target.value;
+                $('em-tp-size-val').textContent = v + '%';
+                tpApply('size', v === 100 ? null : v);
+            });
+            $('em-tp-bold').addEventListener('click', () => {
+                if (!tp || !tp.sel.size) return;
+                const first = Array.from(tp.sel).sort((a, b) => a - b)[0];
+                tpApply('b', tpStyleAt(tp.words[first].s).b ? null : 1);
+            });
+            $('em-tp-italic').addEventListener('click', () => {
+                if (!tp || !tp.sel.size) return;
+                const first = Array.from(tp.sel).sort((a, b) => a - b)[0];
+                tpApply('i', tpStyleAt(tp.words[first].s).i ? null : 1);
+            });
+            $('em-tp-clear').addEventListener('click', () => {
+                ['font', 'color', 'size', 'b', 'i'].forEach(f => tpApply(f, null));
+            });
+            function tpRename() {
+                if (!tp) return;
+                const val = $('em-tp-text').value.trim();
+                if (!val || val === currentText(tp.item)) return;
+                const k = tp.item.dataset.key;
+                if (val === textEl(tp.item).dataset.orig0) { delete ed.text[k]; }
+                else ed.text[k] = { t: val, m: [] };
+                saveEd();
+                renderText(tp.item);
+                tpBuild();
+                rerunSearch();
+            }
+            $('em-tp-text').addEventListener('change', tpRename);
+            $('em-tp-text').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tpRename(); } });
+            $('em-tp-restore').addEventListener('click', () => {
+                if (!tp) return;
+                delete ed.text[tp.item.dataset.key];
+                saveEd();
+                renderText(tp.item);
+                tpBuild();
+                rerunSearch();
+            });
+            $('em-tp-done').addEventListener('click', closeTextPop);
+
+            // double-click a word to style just that word
+            document.addEventListener('dblclick', e => {
+                if (!editOn) return;
+                // pointer capture retargets events to the item, so look up what is really under the cursor
+                const under = document.elementFromPoint(e.clientX, e.clientY);
+                const t = under && under.closest && under.closest('[data-tkey]');
+                if (!t) return;
+                const item = t.closest('.em-item');
+                if (!item) return;
+                let off = null;
+                try {
+                    const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
+                    if (r && t.contains(r.startContainer)) {
+                        const pre = document.createRange();
+                        pre.selectNodeContents(t);
+                        pre.setEnd(r.startContainer, r.startOffset);
+                        off = pre.toString().length;
+                    }
+                } catch (err) {}
+                openTextPop(item, { top: e.clientY, bottom: e.clientY + 12, left: e.clientX }, off);
+            });
+
+            // close popovers on outside press
+            window.addEventListener('pointerdown', e => {
+                const t = e.target;
+                if (cpop.classList.contains('show') && !cpop.contains(t) && !(t.closest && t.closest('.em-btn[data-act="color"]'))) closeColorPop();
+                if (tpop.classList.contains('show') && !tpop.contains(t) && !(t.closest && t.closest('.em-btn[data-act="text"]'))) closeTextPop();
+            }, true);
+
+            // ---------- toolbar buttons / click blocking while editing ----------
+            function sendToBottom(item) {
+                const k = item.dataset.key;
+                const r = item.getBoundingClientRect();
+                const pageBottom = document.documentElement.scrollHeight;
+                const p = ed.pos[k] || { x: 0, y: 0 };
+                p.y = Math.round(p.y + (pageBottom - 24 - (r.bottom + window.scrollY)));
+                ed.pos[k] = p;
+                applyXf(item);
+                saveEd();
+                item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+            let selItem = null;
+            function selectItem(item) {
+                if (selItem && selItem !== item) selItem.classList.remove('em-sel');
+                selItem = item;
+                if (item) item.classList.add('em-sel');
+            }
+            function handleBtn(btn, item) {
+                selectItem(item);
+                const act = btn.dataset.act;
+                const key = item.dataset.key;
+                if (act === 'left') moveCard(item, -1);
+                else if (act === 'right') moveCard(item, 1);
+                else if (act === 'text') { closeColorPop(); openTextPop(item, btn.getBoundingClientRect()); }
+                else if (act === 'color') openColorPop(item, btn);
+                else if (act === 'bottom') sendToBottom(item);
+                else if (act === 'pos') { delete ed.pos[key]; applyXf(item); saveEd(); }
+                else if (act === 'toggle') {
+                    const i = ed.disabled.indexOf(key);
+                    if (i >= 0) ed.disabled.splice(i, 1); else ed.disabled.push(key);
+                    applyDisabled(item);
+                    saveEd();
+                    rerunSearch();
+                } else if (act === 'edit') openLinkModal(item.dataset.custom);
+                else if (act === 'delete') {
+                    if (!confirm('Delete the link "' + labelOf(item) + '"?')) return;
+                    ed.custom = ed.custom.filter(x => x.id !== item.dataset.custom);
+                    forgetKey(key);
+                    item.remove();
+                    saveOrder();
+                    rerunSearch();
+                }
+            }
+            document.addEventListener('click', e => {
+                if (!editOn) return;
+                const t = e.target;
+                if (!t.closest) return;
+                if (t.closest('#em-bar,#em-color-pop,#em-text-pop,.em-modal-backdrop,#settings-panel,#settings-backdrop,#open-settings,#game-modal')) return;
+                if (t.closest('#em-add-card')) { e.preventDefault(); e.stopPropagation(); openLinkModal(); return; }
+                const item = t.closest('.em-item');
+                if (!item) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const btn = t.closest('.em-btn');
+                if (btn) handleBtn(btn, item);
+            }, true);
+            document.addEventListener('dragstart', e => {
+                if (editOn && e.target.closest && e.target.closest('.em-item')) e.preventDefault();
+            }, true);
+
+            // ---------- free dragging (the sandbox) ----------
+            let drag = null;
+            let lastClient = { x: 0, y: 0 };
+            let rafId = 0;
+
+            function clampItem(item, maxTop) {
+                const k = item.dataset.key;
+                const p = ed.pos[k];
+                if (!p) return;
+                const r = item.getBoundingClientRect();
+                const M = 48;
+                let dx = 0, dy = 0;
+                if (r.right < M) dx = M - r.right;
+                else if (r.left > window.innerWidth - M) dx = (window.innerWidth - M) - r.left;
+                const topPage = r.top + window.scrollY;
+                const botPage = r.bottom + window.scrollY;
+                if (botPage < M) dy = M - botPage;
+                else if (maxTop && topPage > maxTop) dy = maxTop - topPage;
+                if (dx || dy) { p.x += dx; p.y += dy; applyXf(item); }
+            }
+            function updateDrag() {
+                const px = lastClient.x + window.scrollX;
+                const py = lastClient.y + window.scrollY;
+                ed.pos[drag.item.dataset.key] = {
+                    x: Math.round(drag.ox + (px - drag.sx)),
+                    y: Math.round(drag.oy + (py - drag.sy))
+                };
+                applyXf(drag.item);
+                clampItem(drag.item, drag.maxTop);
+            }
+            function tick() {
+                if (!drag || !drag.moved) { rafId = 0; return; }
+                const edge = 70, h = window.innerHeight, y = lastClient.y;
+                let dy = 0;
+                if (y < edge) dy = -Math.ceil((edge - Math.max(y, 0)) / edge * 28);
+                else if (y > h - edge) dy = Math.ceil((Math.min(y, h) - (h - edge)) / edge * 28);
+                if (dy) { window.scrollBy(0, dy); updateDrag(); }
+                rafId = requestAnimationFrame(tick);
+            }
+            document.addEventListener('pointerdown', e => {
+                if (!editOn || e.button !== 0) return;
+                const t = e.target;
+                if (!t.closest) return;
+                if (t.closest('.em-btn,#em-bar,#em-color-pop,#em-text-pop,.em-modal-backdrop,#settings-panel,#open-settings,#game-modal,input,select,textarea,label')) return;
+                const item = t.closest('.em-item');
+                if (!item) return;
+                selectItem(item);
+                const p = ed.pos[item.dataset.key] || { x: 0, y: 0 };
+                drag = {
+                    item, id: e.pointerId, sx: e.pageX, sy: e.pageY, ox: p.x, oy: p.y, moved: false,
+                    maxTop: document.documentElement.scrollHeight + 200
+                };
+                lastClient = { x: e.clientX, y: e.clientY };
+                try { item.setPointerCapture(e.pointerId); } catch (err) {}
+            }, true);
+            window.addEventListener('pointermove', e => {
+                if (!drag || e.pointerId !== drag.id) return;
+                lastClient = { x: e.clientX, y: e.clientY };
+                if (!drag.moved) {
+                    if (Math.hypot(e.pageX - drag.sx, e.pageY - drag.sy) < 5) return;
+                    drag.moved = true;
+                    drag.item.classList.add('em-dragging');
+                    document.body.classList.add('em-moving');
+                    if (!rafId) rafId = requestAnimationFrame(tick);
+                }
+                updateDrag();
+            });
+            function endDrag(e) {
+                if (!drag || e.pointerId !== drag.id) return;
+                const d = drag;
+                drag = null;
+                try { d.item.releasePointerCapture(d.id); } catch (err) {}
+                document.body.classList.remove('em-moving');
+                d.item.classList.remove('em-dragging');
+                if (d.moved) {
+                    const k = d.item.dataset.key;
+                    ed.z = ed.z.filter(x => x !== k);
+                    ed.z.push(k);
+                    allItems().forEach(applyXf);
+                    saveEd();
+                }
+            }
+            window.addEventListener('pointerup', endDrag);
+            window.addEventListener('pointercancel', endDrag);
+
+            // ---------- edit-mode shortcut key ----------
+            let editKey = lsGet(EM_KEY, DEFAULT_EDIT_KEY);
+            if (typeof editKey !== 'string' || !editKey) editKey = DEFAULT_EDIT_KEY;
+            const emKeyBtn = $('em-keybind-btn');
+            const emKeyHelp = $('em-keybind-help');
+            const EM_HELP = 'Click the key, then press a new one. Esc cancels.';
+            let emListening = false;
+
+            function refreshEmKey() {
+                emKeyBtn.textContent = keyLabel(editKey);
+                emKeyBtn.classList.remove('listening');
+                emListening = false;
+            }
+            emKeyBtn.addEventListener('click', () => {
+                emListening = true;
+                emKeyBtn.textContent = 'Press a key...';
+                emKeyBtn.classList.add('listening');
+            });
+            emKeyBtn.addEventListener('blur', () => { if (emListening) refreshEmKey(); });
+            $('em-keybind-reset').addEventListener('click', () => {
+                editKey = DEFAULT_EDIT_KEY;
+                lsSet(EM_KEY, editKey);
+                emKeyHelp.textContent = EM_HELP;
+                refreshEmKey();
+            });
+
+            // window capture runs before the page's own document-level key handler
+            window.addEventListener('keydown', e => {
+                if (emListening) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.key === 'Escape') { emKeyHelp.textContent = EM_HELP; refreshEmKey(); return; }
+                    if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+                    if (e.key === closeKey) { emKeyHelp.textContent = 'That key is already your panic button. Pick another.'; return; }
+                    editKey = e.key;
+                    lsSet(EM_KEY, editKey);
+                    emKeyHelp.textContent = EM_HELP;
+                    refreshEmKey();
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    if (warnModal.classList.contains('show')) warnModal.classList.remove('show');
+                    else if (linkModal.classList.contains('show')) closeLinkModal();
+                    else if (tpop.classList.contains('show')) closeTextPop();
+                    else if (cpop.classList.contains('show')) closeColorPop();
+                    return;
+                }
+                if (e.ctrlKey || e.altKey || e.metaKey) return;
+                const t = e.target;
+                const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+                if (typing || anyModalOpen()) return;
+                if (!gameModal.classList.contains('hidden')) return;
+                if (e.key === closeKey) return;
+                if (e.key === editKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editOn ? setEdit(false) : requestEnable();
+                }
+            }, true);
+
+            $('em-reset-layout').addEventListener('click', () => {
+                if (!confirm('Reset the position, size and rotation of everything?')) return;
+                ed.pos = {}; ed.xf = {}; ed.z = [];
+                allItems().forEach(applyXf);
+                saveEd();
+                toast('Layout reset.');
+            });
+            $('em-reset-all').addEventListener('click', () => {
+                if (!confirm('Reset ALL Edit Mode changes? This restores the original layout, un-hides everything, removes custom colors, text changes and deletes your added links.')) return;
+                try { localStorage.removeItem(ED_KEY); } catch (e) {}
+                location.reload();
+            });
+
+            // ---------- custom background ----------
+            const bgEl = $('custom-bg');
+            const bgDim = $('bg-dim');
+            const bgMsg = $('bg-msg');
+            let bg = lsGet(BG_KEY, null);
+            if (bg && typeof bg.src !== 'string') bg = null;
+
+            function applyBg() {
+                const dim = bg && bg.dim != null ? bg.dim : (+bgDim.value || 0);
+                if (bg && bg.src) {
+                    const d = dim / 100;
+                    bgEl.style.backgroundImage = 'linear-gradient(rgba(0,0,0,' + d + '),rgba(0,0,0,' + d + ')), url("' + bg.src.replace(/"/g, '%22') + '")';
+                    bgEl.style.display = 'block';
+                } else {
+                    bgEl.style.display = 'none';
+                    bgEl.style.backgroundImage = '';
+                }
+                bgDim.value = dim;
+                $('bg-dim-val').textContent = dim + '%';
+            }
+            function persistBg() {
+                if (bg) return lsSet(BG_KEY, bg);
+                try { localStorage.removeItem(BG_KEY); } catch (e) {}
+                return true;
+            }
+            function fileToDataUrl(file, maxDim, quality) {
+                return new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onerror = reject;
+                    fr.onload = () => {
+                        const img = new Image();
+                        img.onerror = reject;
+                        img.onload = () => {
+                            const s = Math.min(1, maxDim / Math.max(img.width, img.height));
+                            const c = document.createElement('canvas');
+                            c.width = Math.max(1, Math.round(img.width * s));
+                            c.height = Math.max(1, Math.round(img.height * s));
+                            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                            resolve(c.toDataURL('image/jpeg', quality));
+                        };
+                        img.src = fr.result;
+                    };
+                    fr.readAsDataURL(file);
+                });
+            }
+            $('bg-upload').addEventListener('change', async e => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = '';
+                if (!file) return;
+                bgMsg.textContent = 'Processing image...';
+                const attempts = [[1920, 0.85], [1280, 0.7], [960, 0.6]];
+                for (const [dim, q] of attempts) {
+                    let data;
+                    try { data = await fileToDataUrl(file, dim, q); }
+                    catch (err) { bgMsg.textContent = 'That file could not be read as an image.'; return; }
+                    if (trySave(BG_KEY, { src: data, dim: +bgDim.value, uploaded: true })) {
+                        bg = { src: data, dim: +bgDim.value, uploaded: true };
+                        applyBg();
+                        bgMsg.textContent = 'Background set.';
+                        return;
+                    }
+                }
+                bgMsg.textContent = 'Image too large for browser storage. Try a smaller one or use a link.';
+            });
+            function applyBgUrl() {
+                const url = normalizeUrl($('bg-url-input').value);
+                if (!url) { bgMsg.textContent = 'Enter a valid image link.'; return; }
+                bgMsg.textContent = 'Loading...';
+                const img = new Image();
+                img.onload = () => {
+                    bg = { src: url, dim: +bgDim.value };
+                    if (persistBg()) { applyBg(); bgMsg.textContent = 'Background set.'; }
+                };
+                img.onerror = () => { bgMsg.textContent = 'Could not load an image from that link.'; };
+                img.src = url;
+            }
+            $('bg-url-apply').addEventListener('click', applyBgUrl);
+            $('bg-url-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyBgUrl(); } });
+            bgDim.addEventListener('input', () => {
+                $('bg-dim-val').textContent = bgDim.value + '%';
+                if (bg) { bg.dim = +bgDim.value; applyBg(); }
+            });
+            bgDim.addEventListener('change', () => { if (bg) persistBg(); });
+            $('bg-remove').addEventListener('click', () => {
+                bg = null;
+                persistBg();
+                applyBg();
+                $('bg-url-input').value = '';
+                bgMsg.textContent = 'Background removed.';
+            });
+            applyBg();
+
+            // ---------- user themes ----------
+            let userThemes = lsGet(THEMES_KEY, []);
+            if (!Array.isArray(userThemes)) userThemes = [];
+
+            function renderThemes() {
+                const list = $('ut-list');
+                list.innerHTML = '';
+                if (!userThemes.length) {
+                    const p = document.createElement('p');
+                    p.className = 'text-xs opacity-60';
+                    p.textContent = 'No saved themes yet. Set up colors you like, name it, and hit Save.';
+                    list.appendChild(p);
+                    return;
+                }
+                userThemes.forEach(t => {
+                    const s = t.settings || {};
+                    const row = document.createElement('div');
+                    row.className = 'ut-row flex items-stretch gap-2';
+
+                    const apply = document.createElement('button');
+                    apply.type = 'button';
+                    apply.className = 'flex-1 min-w-0 px-3 py-2 text-xs font-semibold rounded-lg text-left truncate border';
+                    apply.style.backgroundColor = s.bgColor || '';
+                    apply.style.color = s.textColor || '';
+                    apply.style.borderColor = s.accentColor || '';
+                    apply.style.borderLeftWidth = '6px';
+                    apply.textContent = t.name;
+                    apply.title = 'Apply "' + t.name + '"';
+                    apply.addEventListener('click', () => {
+                        applySettings(Object.assign({}, DEFAULT_SETTINGS, s));
+                        if (t.bg && t.bg.src) {
+                            bg = { src: t.bg.src, dim: t.bg.dim != null ? t.bg.dim : 30 };
+                            persistBg();
+                            applyBg();
+                        }
+                        toast('Applied "' + t.name + '"');
+                    });
+
+                    const del = document.createElement('button');
+                    del.type = 'button';
+                    del.className = 'px-3 rounded-lg text-xs font-bold border flex-shrink-0';
+                    del.style.borderColor = 'var(--card-border)';
+                    del.textContent = '\u2715';
+                    del.title = 'Delete theme';
+                    del.addEventListener('click', () => {
+                        if (!confirm('Delete the theme "' + t.name + '"?')) return;
+                        userThemes = userThemes.filter(x => x !== t);
+                        lsSet(THEMES_KEY, userThemes);
+                        renderThemes();
+                    });
+
+                    row.append(apply, del);
+                    list.appendChild(row);
+                });
+            }
+            function saveUserTheme() {
+                const input = $('ut-name');
+                const name = input.value.trim();
+                if (!name) { toast('Give your theme a name first.'); input.focus(); return; }
+                const theme = {
+                    name,
+                    settings: getCurrentSettings(),
+                    bg: (bg && bg.src && !bg.uploaded && !bg.src.startsWith('data:')) ? { src: bg.src, dim: bg.dim } : null
+                };
+                const i = userThemes.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+                if (i >= 0) userThemes[i] = theme; else userThemes.push(theme);
+                if (lsSet(THEMES_KEY, userThemes)) {
+                    toast(i >= 0 ? 'Updated "' + name + '"' : 'Saved "' + name + '"');
+                    input.value = '';
+                }
+                renderThemes();
+            }
+            $('ut-save').addEventListener('click', saveUserTheme);
+            $('ut-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveUserTheme(); } });
+
+            renderThemes();
+            refreshEmKey();
+        })();
     </script>
 </body>
 </html>
