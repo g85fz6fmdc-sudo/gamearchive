@@ -462,12 +462,172 @@
         }
         #em-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+        /* ===== favorites ===== */
+        .fav-btn {
+            position: absolute;
+            top: 3px;
+            left: 5px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            line-height: 1;
+            border-radius: 9999px;
+            cursor: pointer;
+            color: var(--accent-color);
+            opacity: 0;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 3;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .game-card:hover .fav-btn,
+        .fav-btn:focus-visible,
+        .game-card.is-fav .fav-btn { opacity: 1; }
+        .fav-btn:hover { transform: scale(1.25); }
+        @media (hover: none) { .fav-btn { opacity: 0.7; } .game-card.is-fav .fav-btn { opacity: 1; } }
+        .game-card.is-fav { border-color: var(--accent-color); }
+        .fav-head {
+            grid-column: 1 / -1;
+            display: none;
+            font-weight: 800;
+            font-size: 0.9rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--accent-color);
+        }
+        .fav-divider {
+            grid-column: 1 / -1;
+            display: none;
+            height: 1px;
+            background: var(--card-border);
+            margin: 4px 0;
+        }
+        .fav-head.show, .fav-divider.show { display: block; }
+        .preset-btn.theme-active { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+        /* ===== iOS liquid glass (always on) ===== */
+        :root { --glass-blur: 22px; }
+        #glass-orbs {
+            position: fixed;
+            inset: -10%;
+            z-index: -2;
+            display: none;
+            pointer-events: none;
+            background:
+                radial-gradient(40vmax 40vmax at 15% 20%, rgba(120, 120, 255, 0.45), transparent 70%),
+                radial-gradient(45vmax 45vmax at 85% 35%, rgba(255, 120, 200, 0.30), transparent 70%),
+                radial-gradient(50vmax 50vmax at 40% 95%, rgba(80, 200, 255, 0.30), transparent 70%);
+            background:
+                radial-gradient(40vmax 40vmax at 15% 20%, color-mix(in srgb, var(--accent-color) 55%, transparent), transparent 70%),
+                radial-gradient(45vmax 45vmax at 85% 35%, color-mix(in srgb, var(--btn-bg) 40%, transparent), transparent 70%),
+                radial-gradient(50vmax 50vmax at 40% 95%, color-mix(in srgb, var(--accent-color) 35%, transparent), transparent 70%);
+            animation: glassDrift 26s ease-in-out infinite alternate;
+        }
+        @keyframes glassDrift {
+            from { transform: translate(-2%, -1%) scale(1); }
+            to { transform: translate(2%, 2%) scale(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) { #glass-orbs { animation: none; } }
+        body.glass #glass-orbs { display: block; }
+
+        body.glass .theme-card,
+        body.glass #em-add-card {
+            background-color: rgba(255, 255, 255, 0.10);
+            background-color: color-mix(in srgb, var(--card-bg) 38%, transparent);
+            background-image:
+                radial-gradient(120% 90% at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 60%),
+                linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.08));
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 22px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.10), inset 0 0 18px rgba(255, 255, 255, 0.05), 0 10px 30px -8px rgba(0, 0, 0, 0.35);
+        }
+        body.glass .notice-box { border-radius: 16px; }
+        body.glass #em-add-card { position: relative; border-style: dashed; }
+        body.glass .theme-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.45);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.14), 0 18px 40px -10px rgba(0, 0, 0, 0.45);
+        }
+        body.glass .game-card.is-fav { border-color: var(--accent-color); }
+
+        body.glass .play-btn-pill {
+            background-color: color-mix(in srgb, var(--btn-bg) 80%, transparent);
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0) 60%);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        body.glass .settings-btn {
+            background: rgba(255, 255, 255, 0.14);
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 6px 18px rgba(0, 0, 0, 0.25);
+        }
+
+        body.glass .settings-drawer {
+            background-color: rgba(30, 30, 40, 0.45);
+            background-color: color-mix(in srgb, var(--card-bg) 48%, transparent);
+            background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02) 40%);
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(190%);
+            backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(190%);
+            border-left: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 28px 0 0 28px;
+            box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.35), -10px 0 40px rgba(0, 0, 0, 0.4);
+        }
+        body.glass #em-section { border-radius: 20px; }
+
+        body.glass .em-modal,
+        body.glass #em-color-pop,
+        body.glass #em-text-pop,
+        body.glass #em-bar,
+        body.glass #em-toast,
+        body.glass .close-hint {
+            background-color: rgba(30, 30, 40, 0.5);
+            background-color: color-mix(in srgb, var(--card-bg) 55%, transparent);
+            background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 45%);
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.3)) saturate(190%);
+            backdrop-filter: blur(calc(var(--glass-blur) * 1.3)) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 22px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 20px 50px rgba(0, 0, 0, 0.45);
+        }
+        body.glass .em-modal.warn { border-color: #f59e0b; }
+
+        body.glass #search-input {
+            background-color: rgba(255, 255, 255, 0.10) !important;
+            border: 1px solid rgba(255, 255, 255, 0.28) !important;
+            border-radius: 9999px;
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+        }
+        body.glass input.em-input,
+        body.glass .keybind-btn {
+            background-color: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 14px;
+        }
+        body.glass .em-btn {
+            background-color: rgba(255, 255, 255, 0.16);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+        }
+        body.glass .em-pill-btn { border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+
         .ut-row button { transition: filter 0.15s ease; }
         .ut-row button:hover { filter: brightness(1.2); }
     </style>
 </head>
-<body>
+<body class="glass">
 
+    <div id="glass-orbs"></div>
     <div id="custom-bg"></div>
 
     <div class="notice-box theme-card">Games take some time to load they aren't broken</div>
@@ -2540,7 +2700,7 @@
                     <label class="block text-xs font-semibold uppercase tracking-wider opacity-70">Edit Mode</label>
                     <span id="em-status" class="text-xs font-extrabold opacity-70">OFF</span>
                 </div>
-                <p class="text-xs opacity-70 mb-3">Turn the page into a sandbox: drag anything anywhere, hide, resize or rotate it, recolor single cards, restyle single words, and add links to games on other websites.</p>
+                <p class="text-xs opacity-70 mb-3">Turn the page into a sandbox: drag anything anywhere, hide, resize or rotate it, recolor single cards, restyle single words, and add links to games on other websites. Changes are saved separately for each theme.</p>
                 <button id="em-toggle" type="button" class="w-full py-2.5 rounded-lg text-sm font-bold transition hover:brightness-110" style="background-color: var(--btn-bg); color: var(--btn-text);">Enable Edit Mode</button>
 
                 <div class="flex items-center justify-between gap-3 mt-4">
@@ -2554,17 +2714,36 @@
 
                 <button id="em-add-link-btn" type="button" class="hidden w-full mt-4 py-2 rounded-lg text-sm font-semibold border transition hover:brightness-125" style="border-color: var(--card-border);">+ Add Game Link</button>
                 <button id="em-reset-layout" type="button" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Reset layout only (positions, size, rotation)</button>
-                <button id="em-reset-all" type="button" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Reset all Edit Mode changes</button>
+                <button id="em-reset-all" type="button" class="w-full mt-2 py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Reset all Edit Mode changes (this theme)</button>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">My Themes</label>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Glass Blur</label>
+                <div id="glass-blur-row">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Blur strength</span>
+                        <span id="glass-blur-val" class="text-xs opacity-70">22px</span>
+                    </div>
+                    <input type="range" id="glass-blur" min="0" max="40" value="22" class="w-full">
+                    <p class="text-xs opacity-50 mt-1">Lower this if scrolling feels slow on your device.</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">Favorites</label>
+                <p class="text-xs opacity-70 mb-2">Click the &#9734; on any game card to pin it to the top of the page. Favorites show in every theme. <span id="fav-count" class="font-bold"></span></p>
+                <button id="fav-clear" type="button" class="w-full py-2 rounded-lg text-xs font-semibold opacity-70 hover:opacity-100 transition border" style="border-color: var(--card-border);">Clear all favorites</button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">My Themes</label>
+                <p class="text-xs mb-3 opacity-80">Active theme: <span id="active-theme-label" class="font-bold theme-accent-text"></span></p>
                 <div class="flex gap-2 mb-3">
                     <input id="ut-name" type="text" maxlength="30" placeholder="Name this theme..." class="em-input flex-1 min-w-0">
                     <button id="ut-save" type="button" class="px-3 py-2 rounded-lg text-sm font-bold flex-shrink-0 transition hover:brightness-110" style="background-color: var(--btn-bg); color: var(--btn-text);">Save</button>
                 </div>
                 <div id="ut-list" class="space-y-2"></div>
-                <p class="text-xs opacity-50 mt-2">Saves your colors, font, and background if it's a link (uploaded images are too large to store per theme).</p>
+                <p class="text-xs opacity-50 mt-2">Every theme keeps its own colors, font, background image and Edit Mode layout. Saving copies what you see right now into the new theme.</p>
             </div>
 
 
@@ -2616,7 +2795,8 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider mb-3 opacity-70">Background Image</label>
+                <label class="block text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">Background Image</label>
+                <p class="text-xs opacity-60 mb-3">Only applies to the active theme: <span id="bg-theme-label" class="font-semibold"></span></p>
                 <div class="space-y-2">
                     <label for="bg-upload" class="block w-full text-center py-2 rounded-lg text-sm font-semibold border cursor-pointer transition hover:brightness-125" style="border-color: var(--card-border);">Upload Image</label>
                     <input type="file" id="bg-upload" accept="image/*" class="hidden">
@@ -3426,10 +3606,77 @@
             }
 
             // ---------- stored edit data ----------
-            let ed = Object.assign({ disabled: [], order: [], colors: {}, custom: [], pos: {}, xf: {}, z: [], text: {} }, lsGet(ED_KEY, {}));
-            ['disabled', 'order', 'custom', 'z'].forEach(k => { if (!Array.isArray(ed[k])) ed[k] = []; });
-            ['colors', 'pos', 'xf', 'text'].forEach(k => { if (!ed[k] || typeof ed[k] !== 'object' || Array.isArray(ed[k])) ed[k] = {}; });
-            const saveEd = () => lsSet(ED_KEY, ed);
+            // Every theme (a preset or one of your saved themes) is its own slot with its own
+            // Edit Mode layout and its own background image. Added game links are shared by all themes.
+            const STORE_KEY = 'gamehub_edit_v2';   // { custom: [links], themes: { <themeId>: edit data } }
+            const BGS_KEY = 'gamehub_bg_by_theme'; // { <themeId>: { src, dim, uploaded? } }
+            const ACTIVE_KEY = 'gamehub_active_theme';
+            const FAV_KEY = 'gamehub_favorites';
+            const COLOR_KEYS = ['bgColor', 'textColor', 'accentColor', 'cardBg', 'btnBg', 'btnText'];
+            const clone = o => JSON.parse(JSON.stringify(o));
+            const EMPTY_ED = () => ({ disabled: [], order: [], colors: {}, pos: {}, xf: {}, z: [], text: {} });
+            function normEd(o) {
+                const e = Object.assign(EMPTY_ED(), (o && typeof o === 'object' && !Array.isArray(o)) ? o : {});
+                ['disabled', 'order', 'z'].forEach(k => { if (!Array.isArray(e[k])) e[k] = []; });
+                ['colors', 'pos', 'xf', 'text'].forEach(k => { if (!e[k] || typeof e[k] !== 'object' || Array.isArray(e[k])) e[k] = {}; });
+                delete e.custom;
+                return e;
+            }
+
+            let userThemes = lsGet(THEMES_KEY, []);
+            if (!Array.isArray(userThemes)) userThemes = [];
+            const themeIdOfUser = name => 'user:' + String(name).toLowerCase();
+            const sameColors = (a, b) => COLOR_KEYS.every(k => String(a[k] || '').toLowerCase() === String(b[k] || '').toLowerCase());
+            function presetSettings(key) {
+                const p = PRESETS[key];
+                return { bgColor: p.bg, textColor: p.text, accentColor: p.accent, cardBg: p.card, btnBg: p.btnBg, btnText: p.btnText };
+            }
+            function themeExists(id) {
+                if (id === 'custom') return true;
+                if (id.startsWith('preset:')) return !!PRESETS[id.slice(7)];
+                if (id.startsWith('user:')) return userThemes.some(t => themeIdOfUser(t.name) === id);
+                return false;
+            }
+            function guessTheme() {
+                const cur = Object.assign({}, DEFAULT_SETTINGS, lsGet('gamehub_theme_settings', null) || {});
+                for (const k of Object.keys(PRESETS)) if (sameColors(cur, presetSettings(k))) return 'preset:' + k;
+                const u = userThemes.find(t => sameColors(cur, Object.assign({}, DEFAULT_SETTINGS, t.settings || {})));
+                return u ? themeIdOfUser(u.name) : 'custom';
+            }
+            let activeId = lsGet(ACTIVE_KEY, null);
+            if (typeof activeId !== 'string' || !themeExists(activeId)) activeId = guessTheme();
+            trySave(ACTIVE_KEY, activeId);
+
+            // edit data: one object per theme (older single-save data moves into the theme you were using)
+            let store = lsGet(STORE_KEY, null);
+            if (!store || typeof store !== 'object' || Array.isArray(store)) {
+                const legacy = lsGet(ED_KEY, {});
+                store = { custom: (legacy && Array.isArray(legacy.custom)) ? legacy.custom : [], themes: {} };
+                if (legacy && typeof legacy === 'object' && Object.keys(legacy).some(k => k !== 'custom')) store.themes[activeId] = normEd(legacy);
+                trySave(STORE_KEY, store);
+            }
+            if (!Array.isArray(store.custom)) store.custom = [];
+            if (!store.themes || typeof store.themes !== 'object' || Array.isArray(store.themes)) store.themes = {};
+            function bindEd(id) { const e = normEd(store.themes[id]); store.themes[id] = e; return e; }
+            let ed = bindEd(activeId);
+            const saveEd = () => lsSet(STORE_KEY, store);
+
+            // backgrounds: one per theme (older single background moves into the theme you were using)
+            let bgMap = lsGet(BGS_KEY, null);
+            if (!bgMap || typeof bgMap !== 'object' || Array.isArray(bgMap)) {
+                bgMap = {};
+                userThemes.forEach(t => {
+                    if (t && t.bg && typeof t.bg.src === 'string') bgMap[themeIdOfUser(t.name)] = { src: t.bg.src, dim: t.bg.dim != null ? t.bg.dim : 30 };
+                });
+                const oldBg = lsGet(BG_KEY, null);
+                if (oldBg && typeof oldBg.src === 'string') bgMap[activeId] = oldBg;
+                if (trySave(BGS_KEY, bgMap)) {
+                    try { localStorage.removeItem(BG_KEY); } catch (e) {}
+                } else {
+                    try { localStorage.removeItem(BG_KEY); } catch (e) {}
+                    if (!trySave(BGS_KEY, bgMap) && oldBg) trySave(BG_KEY, oldBg);
+                }
+            }
 
             let editOn = false;
 
@@ -3545,6 +3792,70 @@
                 c.dataset.key = k;
             }
 
+            // ---------- favorites (shared by every theme) ----------
+            let favs = lsGet(FAV_KEY, []);
+            favs = Array.isArray(favs) ? favs.filter(k => typeof k === 'string') : [];
+            const favHead = document.createElement('div');
+            favHead.className = 'fav-head';
+            favHead.textContent = '\u2605 Favorites';
+            favHead.style.order = '-5';
+            const favDivider = document.createElement('div');
+            favDivider.className = 'fav-divider';
+            favDivider.style.order = '-3';
+            grid.insertBefore(favDivider, grid.firstChild);
+            grid.insertBefore(favHead, grid.firstChild);
+
+            function updateFavUI() {
+                let shown = 0, total = 0;
+                allCards().forEach(c => {
+                    const on = favs.includes(c.dataset.key);
+                    c.classList.toggle('is-fav', on);
+                    c.style.order = on ? '-4' : '';
+                    const b = c.querySelector(':scope > .fav-btn');
+                    if (b) {
+                        b.textContent = on ? '\u2605' : '\u2606';
+                        b.title = on ? 'Remove from favorites' : 'Add to favorites';
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    }
+                    if (on) {
+                        total++;
+                        if (c.style.display !== 'none' && (!c.classList.contains('em-disabled') || editOn)) shown++;
+                    }
+                });
+                favHead.classList.toggle('show', shown > 0);
+                favDivider.classList.toggle('show', shown > 0);
+                const fc = $('fav-count');
+                if (fc) fc.textContent = total ? '(' + total + ' pinned)' : '';
+            }
+            function toggleFav(card) {
+                const k = card.dataset.key;
+                const i = favs.indexOf(k);
+                if (i >= 0) favs.splice(i, 1); else favs.push(k);
+                lsSet(FAV_KEY, favs);
+                updateFavUI();
+            }
+            function addFavBtn(card) {
+                if (card.querySelector(':scope > .fav-btn')) return;
+                const b = document.createElement('span');
+                b.className = 'fav-btn';
+                b.setAttribute('role', 'button');
+                b.tabIndex = 0;
+                const act = e => { e.preventDefault(); e.stopPropagation(); toggleFav(card); };
+                b.addEventListener('click', act);
+                b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') act(e); });
+                card.appendChild(b);
+            }
+            searchInput.addEventListener('input', updateFavUI);
+            $('fav-clear').addEventListener('click', () => {
+                if (!favs.length) { toast('No favorites to clear.'); return; }
+                if (!confirm('Remove all favorites?')) return;
+                favs = [];
+                lsSet(FAV_KEY, favs);
+                updateFavUI();
+            });
+
+            let baseOrder = [];
+
             function allItems() { return Array.from(document.querySelectorAll('.em-item')); }
             function allCards() { return Array.from(grid.querySelectorAll('.game-card')); }
 
@@ -3631,6 +3942,7 @@
             function setupCard(card) {
                 assignKey(card);
                 registerItem(card, { textSel: true });
+                addFavBtn(card);
             }
 
             function saveOrder() {
@@ -3642,12 +3954,16 @@
                 const map = new Map(cards.map(c => [c.dataset.key, c]));
                 const seq = [];
                 ed.order.forEach(k => { if (map.has(k)) { seq.push(map.get(k)); map.delete(k); } });
+                baseOrder.forEach(k => { if (map.has(k)) { seq.push(map.get(k)); map.delete(k); } });
                 cards.forEach(c => { if (map.has(c.dataset.key)) seq.push(c); });
                 seq.forEach(c => grid.insertBefore(c, addCard));
             }
             function moveCard(card, dir) {
+                // favorites are shown first, so only swap places with cards in the same group
+                const isFav = favs.includes(card.dataset.key);
+                const sameGroup = el => el.classList.contains('game-card') && favs.includes(el.dataset.key) === isFav;
                 let sib = dir < 0 ? card.previousElementSibling : card.nextElementSibling;
-                while (sib && !sib.classList.contains('game-card')) {
+                while (sib && !sameGroup(sib)) {
                     sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
                 }
                 if (!sib) return;
@@ -3662,13 +3978,14 @@
             }
 
             // ---------- init items ----------
-            ed.custom.forEach(item => {
+            store.custom.forEach(item => {
                 const url = normalizeUrl(item && item.url);
                 if (!url || !item.id || !item.title) return;
                 item.url = url;
                 grid.insertBefore(makeCustomCard(item), addCard);
             });
             allCards().forEach(setupCard);
+            baseOrder = allCards().map(c => c.dataset.key);
             applyOrder();
 
             registerItem(document.querySelector('header h1'), { key: 'ui:title', label: 'Title', wrap: true, fit: true });
@@ -3676,6 +3993,16 @@
             registerItem(searchInput.parentElement, { key: 'ui:search', label: 'Search bar', styleEl: searchInput });
             registerItem(document.querySelector('.notice-box'), { key: 'ui:notice', label: 'Notice', wrap: true });
             registerItem($('random-card'), { key: 'ui:random', label: 'Random Game', textSel: true });
+            updateFavUI();
+
+            // re-draw everything from the active theme's edit data
+            function refreshAllItems() {
+                allItems().forEach(item => {
+                    applyColors(item); applyXf(item); applyDisabled(item);
+                    if (textEl(item)) renderText(item);
+                });
+                applyOrder();
+            }
 
             // ---------- edit mode on/off ----------
             const warnModal = $('em-warning');
@@ -3713,7 +4040,7 @@
             let editingId = null;
             function openLinkModal(id) {
                 editingId = id || null;
-                const it = id ? ed.custom.find(x => x.id === id) : null;
+                const it = id ? store.custom.find(x => x.id === id) : null;
                 $('em-link-heading').textContent = it ? 'Edit Game Link' : 'Add Game Link';
                 $('em-link-title').value = it ? it.title : '';
                 $('em-link-url').value = it ? it.url : '';
@@ -3730,7 +4057,7 @@
                 if (!url) { err.textContent = 'Enter a valid web link (http or https).'; return; }
                 const wasEditing = !!editingId;
                 if (editingId) {
-                    const it = ed.custom.find(x => x.id === editingId);
+                    const it = store.custom.find(x => x.id === editingId);
                     const card = grid.querySelector('[data-custom="' + editingId + '"]');
                     if (it && card) {
                         it.title = title; it.url = url;
@@ -3742,10 +4069,11 @@
                 } else {
                     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
                     const item = { id, title, url };
-                    ed.custom.push(item);
+                    store.custom.push(item);
                     const card = makeCustomCard(item);
                     grid.insertBefore(card, addCard);
                     setupCard(card);
+                    baseOrder.push(card.dataset.key);
                     saveOrder();
                     card.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 }
@@ -4029,8 +4357,10 @@
                 } else if (act === 'edit') openLinkModal(item.dataset.custom);
                 else if (act === 'delete') {
                     if (!confirm('Delete the link "' + labelOf(item) + '"?')) return;
-                    ed.custom = ed.custom.filter(x => x.id !== item.dataset.custom);
+                    store.custom = store.custom.filter(x => x.id !== item.dataset.custom);
                     forgetKey(key);
+                    favs = favs.filter(k => k !== key);
+                    lsSet(FAV_KEY, favs);
                     item.remove();
                     saveOrder();
                     rerunSearch();
@@ -4040,6 +4370,7 @@
                 if (!editOn) return;
                 const t = e.target;
                 if (!t.closest) return;
+                if (t.closest('.fav-btn')) return;
                 if (t.closest('#em-bar,#em-color-pop,#em-text-pop,.em-modal-backdrop,#settings-panel,#settings-backdrop,#open-settings,#game-modal')) return;
                 if (t.closest('#em-add-card')) { e.preventDefault(); e.stopPropagation(); openLinkModal(); return; }
                 const item = t.closest('.em-item');
@@ -4096,7 +4427,7 @@
                 if (!editOn || e.button !== 0) return;
                 const t = e.target;
                 if (!t.closest) return;
-                if (t.closest('.em-btn,#em-bar,#em-color-pop,#em-text-pop,.em-modal-backdrop,#settings-panel,#open-settings,#game-modal,input,select,textarea,label')) return;
+                if (t.closest('.em-btn,.fav-btn,#em-bar,#em-color-pop,#em-text-pop,.em-modal-backdrop,#settings-panel,#open-settings,#game-modal,input,select,textarea,label')) return;
                 const item = t.closest('.em-item');
                 if (!item) return;
                 selectItem(item);
@@ -4206,20 +4537,24 @@
                 toast('Layout reset.');
             });
             $('em-reset-all').addEventListener('click', () => {
-                if (!confirm('Reset ALL Edit Mode changes? This restores the original layout, un-hides everything, removes custom colors, text changes and deletes your added links.')) return;
-                try { localStorage.removeItem(ED_KEY); } catch (e) {}
-                location.reload();
+                if (!confirm('Reset ALL Edit Mode changes for this theme? This restores its original layout, un-hides everything and removes its custom colors and text changes. Your added game links, favorites and other themes are not affected.')) return;
+                ed = store.themes[activeId] = normEd({});
+                saveEd();
+                closeColorPop(); closeTextPop(); selectItem(null);
+                refreshAllItems();
+                rerunSearch();
+                toast('Edit Mode changes reset for this theme.');
             });
 
             // ---------- custom background ----------
             const bgEl = $('custom-bg');
             const bgDim = $('bg-dim');
             const bgMsg = $('bg-msg');
-            let bg = lsGet(BG_KEY, null);
+            let bg = bgMap[activeId] || null;
             if (bg && typeof bg.src !== 'string') bg = null;
 
             function applyBg() {
-                const dim = bg && bg.dim != null ? bg.dim : (+bgDim.value || 0);
+                const dim = bg && bg.dim != null ? bg.dim : 30;
                 if (bg && bg.src) {
                     const d = dim / 100;
                     bgEl.style.backgroundImage = 'linear-gradient(rgba(0,0,0,' + d + '),rgba(0,0,0,' + d + ')), url("' + bg.src.replace(/"/g, '%22') + '")';
@@ -4232,9 +4567,8 @@
                 $('bg-dim-val').textContent = dim + '%';
             }
             function persistBg() {
-                if (bg) return lsSet(BG_KEY, bg);
-                try { localStorage.removeItem(BG_KEY); } catch (e) {}
-                return true;
+                if (bg) bgMap[activeId] = bg; else delete bgMap[activeId];
+                return lsSet(BGS_KEY, bgMap);
             }
             function fileToDataUrl(file, maxDim, quality) {
                 return new Promise((resolve, reject) => {
@@ -4266,14 +4600,17 @@
                     let data;
                     try { data = await fileToDataUrl(file, dim, q); }
                     catch (err) { bgMsg.textContent = 'That file could not be read as an image.'; return; }
-                    if (trySave(BG_KEY, { src: data, dim: +bgDim.value, uploaded: true })) {
-                        bg = { src: data, dim: +bgDim.value, uploaded: true };
+                    const prev = bgMap[activeId];
+                    bgMap[activeId] = { src: data, dim: +bgDim.value, uploaded: true };
+                    if (trySave(BGS_KEY, bgMap)) {
+                        bg = bgMap[activeId];
                         applyBg();
-                        bgMsg.textContent = 'Background set.';
+                        bgMsg.textContent = 'Background set for this theme.';
                         return;
                     }
+                    if (prev) bgMap[activeId] = prev; else delete bgMap[activeId];
                 }
-                bgMsg.textContent = 'Image too large for browser storage. Try a smaller one or use a link.';
+                bgMsg.textContent = 'Not enough browser storage left (each theme can hold its own image). Try a smaller image, a link, or remove another theme\'s background.';
             });
             function applyBgUrl() {
                 const url = normalizeUrl($('bg-url-input').value);
@@ -4282,7 +4619,7 @@
                 const img = new Image();
                 img.onload = () => {
                     bg = { src: url, dim: +bgDim.value };
-                    if (persistBg()) { applyBg(); bgMsg.textContent = 'Background set.'; }
+                    if (persistBg()) { applyBg(); bgMsg.textContent = 'Background set for this theme.'; }
                 };
                 img.onerror = () => { bgMsg.textContent = 'Could not load an image from that link.'; };
                 img.src = url;
@@ -4304,8 +4641,42 @@
             applyBg();
 
             // ---------- user themes ----------
-            let userThemes = lsGet(THEMES_KEY, []);
-            if (!Array.isArray(userThemes)) userThemes = [];
+            function themeLabel(id) {
+                if (id.startsWith('preset:')) {
+                    const b = document.querySelector('.preset-btn[data-preset="' + id.slice(7) + '"]');
+                    return b ? b.textContent.trim() : id.slice(7);
+                }
+                if (id.startsWith('user:')) {
+                    const t = userThemes.find(x => themeIdOfUser(x.name) === id);
+                    return t ? t.name : 'Custom';
+                }
+                return 'Unsaved custom colors';
+            }
+            function updateThemeUI() {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('theme-active', 'preset:' + b.dataset.preset === activeId));
+                const lbl = themeLabel(activeId);
+                $('active-theme-label').textContent = lbl;
+                $('bg-theme-label').textContent = lbl;
+                renderThemes();
+            }
+            function switchTheme(id) {
+                if (id === activeId) return;
+                activeId = id;
+                trySave(ACTIVE_KEY, id);
+                ed = bindEd(id);
+                bg = bgMap[id] || null;
+                closeColorPop(); closeTextPop(); selectItem(null);
+                refreshAllItems();
+                applyBg();
+                bgMsg.textContent = '';
+                $('bg-url-input').value = '';
+                updateThemeUI();
+                rerunSearch();
+            }
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTheme('preset:' + btn.getAttribute('data-preset')));
+            });
+            $('reset-defaults').addEventListener('click', () => switchTheme('preset:defaultDark'));
 
             function renderThemes() {
                 const list = $('ut-list');
@@ -4329,15 +4700,11 @@
                     apply.style.color = s.textColor || '';
                     apply.style.borderColor = s.accentColor || '';
                     apply.style.borderLeftWidth = '6px';
-                    apply.textContent = t.name;
+                    apply.textContent = (themeIdOfUser(t.name) === activeId ? '\u2713 ' : '') + t.name;
                     apply.title = 'Apply "' + t.name + '"';
                     apply.addEventListener('click', () => {
                         applySettings(Object.assign({}, DEFAULT_SETTINGS, s));
-                        if (t.bg && t.bg.src) {
-                            bg = { src: t.bg.src, dim: t.bg.dim != null ? t.bg.dim : 30 };
-                            persistBg();
-                            applyBg();
-                        }
+                        switchTheme(themeIdOfUser(t.name));
                         toast('Applied "' + t.name + '"');
                     });
 
@@ -4349,9 +4716,15 @@
                     del.title = 'Delete theme';
                     del.addEventListener('click', () => {
                         if (!confirm('Delete the theme "' + t.name + '"?')) return;
+                        const delId = themeIdOfUser(t.name);
                         userThemes = userThemes.filter(x => x !== t);
                         lsSet(THEMES_KEY, userThemes);
-                        renderThemes();
+                        delete store.themes[delId];
+                        delete bgMap[delId];
+                        saveEd();
+                        lsSet(BGS_KEY, bgMap);
+                        if (activeId === delId) switchTheme('custom'); else renderThemes();
+                        updateThemeUI();
                     });
 
                     row.append(apply, del);
@@ -4362,24 +4735,65 @@
                 const input = $('ut-name');
                 const name = input.value.trim();
                 if (!name) { toast('Give your theme a name first.'); input.focus(); return; }
-                const theme = {
-                    name,
-                    settings: getCurrentSettings(),
-                    bg: (bg && bg.src && !bg.uploaded && !bg.src.startsWith('data:')) ? { src: bg.src, dim: bg.dim } : null
-                };
-                const i = userThemes.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+                const theme = { name, settings: getCurrentSettings() };
+                const newId = themeIdOfUser(name);
+                const i = userThemes.findIndex(x => themeIdOfUser(x.name) === newId);
                 if (i >= 0) userThemes[i] = theme; else userThemes.push(theme);
                 if (lsSet(THEMES_KEY, userThemes)) {
+                    // copy what you see right now (layout + background) into the saved theme
+                    if (newId !== activeId) {
+                        const fromId = activeId;
+                        store.themes[newId] = normEd(clone(ed));
+                        if (bg) bgMap[newId] = clone(bg); else delete bgMap[newId];
+                        if (fromId === 'custom') { delete store.themes.custom; delete bgMap.custom; }
+                        saveEd();
+                        lsSet(BGS_KEY, bgMap);
+                        switchTheme(newId);
+                    }
                     toast(i >= 0 ? 'Updated "' + name + '"' : 'Saved "' + name + '"');
                     input.value = '';
                 }
-                renderThemes();
+                updateThemeUI();
             }
             $('ut-save').addEventListener('click', saveUserTheme);
             $('ut-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveUserTheme(); } });
 
-            renderThemes();
+            updateThemeUI();
             refreshEmKey();
+        })();
+    </script>
+    <script>
+        // Liquid glass is the one look; only the blur strength is adjustable (saved in this browser)
+        (function () {
+            const BLUR_KEY = 'gamehub_glass_blur';
+            const $ = id => document.getElementById(id);
+            let blur = 22;
+            try {
+                const b = parseInt(localStorage.getItem(BLUR_KEY), 10);
+                if (isFinite(b) && b >= 0 && b <= 40) blur = b;
+            } catch (e) {}
+
+            function apply() {
+                document.documentElement.style.setProperty('--glass-blur', blur + 'px');
+                $('glass-blur').value = blur;
+                $('glass-blur-val').textContent = blur + 'px';
+            }
+            $('glass-blur').addEventListener('input', e => { blur = +e.target.value; apply(); });
+            $('glass-blur').addEventListener('change', () => {
+                try { localStorage.setItem(BLUR_KEY, String(blur)); } catch (e) {}
+            });
+
+            // soft highlight that follows the pointer across a card
+            document.addEventListener('pointermove', e => {
+                const c = e.target.closest && e.target.closest('.theme-card');
+                if (!c) return;
+                const r = c.getBoundingClientRect();
+                if (!r.width || !r.height) return;
+                c.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+                c.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+            });
+
+            apply();
         })();
     </script>
 </body>
