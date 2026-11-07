@@ -536,12 +536,12 @@
         body.glass .theme-card,
         body.glass #em-add-card {
             background-color: rgba(255, 255, 255, 0.10);
-            background-color: color-mix(in srgb, var(--card-bg) 38%, transparent);
+            background-color: color-mix(in srgb, var(--card-bg) var(--card-fill, 38%), transparent);
             background-image:
                 radial-gradient(120% 90% at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 60%),
                 linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.08));
-            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) * (1 - var(--card-clear, 0)))) saturate(calc(1 + 0.8 * (1 - var(--card-clear, 0))));
+            backdrop-filter: blur(calc(var(--glass-blur) * (1 - var(--card-clear, 0)))) saturate(calc(1 + 0.8 * (1 - var(--card-clear, 0))));
             border: 1px solid rgba(255, 255, 255, 0.22);
             border-radius: 22px;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.10), inset 0 0 18px rgba(255, 255, 255, 0.05), 0 10px 30px -8px rgba(0, 0, 0, 0.35);
@@ -620,6 +620,51 @@
             border: 1px solid rgba(255, 255, 255, 0.35);
         }
         body.glass .em-pill-btn { border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+
+        /* ===== game bar buttons (colors are saved per theme) ===== */
+        :root {
+            --card-clear: 0;
+            --card-fill: 38%;
+            --close-btn-bg: #dc2626;
+            --close-btn-text: #ffffff;
+            --fs-btn-bg: #2563eb;
+            --fs-btn-text: #ffffff;
+        }
+        .game-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            transition: filter 0.15s ease, transform 0.15s ease;
+        }
+        .game-btn:hover { filter: brightness(0.88); }
+        .game-btn:active { transform: scale(0.97); }
+        .game-btn-close { background-color: var(--close-btn-bg); color: var(--close-btn-text); }
+        .game-btn-fs { background-color: var(--fs-btn-bg); color: var(--fs-btn-text); }
+        #game-exit-full {
+            display: none;
+            position: absolute;
+            top: calc(10px + env(safe-area-inset-top, 0px));
+            right: calc(10px + env(safe-area-inset-right, 0px));
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background-color: var(--fs-btn-bg);
+            color: var(--fs-btn-text);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.15s ease;
+            z-index: 60;
+        }
+        #game-exit-full:hover, #game-exit-full:focus-visible { opacity: 1; }
+        #game-modal.game-full .game-bar { display: none; }
+        #game-modal.game-full #game-exit-full { display: flex; }
 
         .ut-row button { transition: filter 0.15s ease; }
         .ut-row button:hover { filter: brightness(1.2); }
@@ -2783,6 +2828,15 @@
                     <input type="color" id="card-color-picker" class="color-picker-input" value="#1e293b">
                 </div>
 
+                <div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">Card Transparency</span>
+                        <span id="card-clear-val" class="text-xs opacity-70">0%</span>
+                    </div>
+                    <input type="range" id="card-clear" min="0" max="100" value="0" class="w-full">
+                    <p class="text-xs opacity-50 mt-1">0% is frosted glass. 100% is completely clear glass: no tint and no blur, just the card's edge and text. Saved per theme.</p>
+                </div>
+
                 <div class="color-picker-row">
                     <span class="text-sm font-medium">Play Button Color</span>
                     <input type="color" id="btn-bg-picker" class="color-picker-input" value="#22c55e">
@@ -2791,6 +2845,20 @@
                 <div class="color-picker-row">
                     <span class="text-sm font-medium">Play Button Text Color</span>
                     <input type="color" id="btn-text-picker" class="color-picker-input" value="#ffffff">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Close Game Button</span>
+                    <input type="color" id="gb-close-color" class="color-picker-input" value="#dc2626">
+                </div>
+
+                <div class="color-picker-row">
+                    <span class="text-sm font-medium">Fullscreen Button</span>
+                    <input type="color" id="gb-fs-color" class="color-picker-input" value="#2563eb">
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs opacity-60">The two game bar buttons are saved separately for each theme.</p>
+                    <button id="gb-reset" type="button" class="text-xs font-semibold opacity-70 hover:opacity-100 transition underline flex-shrink-0">Reset</button>
                 </div>
             </div>
 
@@ -2975,12 +3043,21 @@
     <div id="close-hint" class="close-hint"></div>
 
     <div id="game-modal" class="fixed inset-0 bg-black hidden z-50 flex flex-col">
-        <div class="p-3 flex justify-between items-center border-b" style="background-color: var(--card-bg); border-color: var(--card-border);">
+        <div class="game-bar p-3 flex justify-between items-center border-b" style="background-color: var(--card-bg); border-color: var(--card-border);">
             <span id="game-modal-title" class="font-bold text-lg px-2">Playing Game</span>
-            <button id="close-game" class="px-4 py-1.5 rounded-lg font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition">
-                Close Game ✕
-            </button>
+            <div class="flex items-center gap-2">
+                <button id="fullscreen-game" type="button" class="game-btn game-btn-fs px-4 py-1.5 rounded-lg font-bold text-sm">
+                    Fullscreen
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                </button>
+                <button id="close-game" type="button" class="game-btn game-btn-close px-4 py-1.5 rounded-lg font-bold text-sm">
+                    Close Game ✕
+                </button>
+            </div>
         </div>
+        <button id="game-exit-full" type="button" title="Exit fullscreen" aria-label="Exit fullscreen">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4a2 2 0 0 1-2 2H3M15 3v4a2 2 0 0 0 2 2h4M9 21v-4a2 2 0 0 0-2-2H3M15 21v-4a2 2 0 0 1 2-2h4"/></svg>
+        </button>
         <iframe id="game-frame" class="w-full h-full border-0 flex-1" src="about:blank" allow="fullscreen; autoplay; gamepad; clipboard-write" allowfullscreen></iframe>
     </div>
 
@@ -3169,6 +3246,7 @@
         let currentBlobUrl = null;
         let scriptBlobUrls = [];
         let loadToken = 0;
+        let currentGameUrl = null;
 
         function revokeScriptBlobs() {
             scriptBlobUrls.forEach(u => URL.revokeObjectURL(u));
@@ -3366,6 +3444,7 @@
         }
 
         async function loadGame(url) {
+            currentGameUrl = url;
             const token = ++loadToken;
             if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
             revokeScriptBlobs();
@@ -3412,7 +3491,46 @@
             }
         });
 
+        // fullscreen view: hides the top bar, asks the browser for real fullscreen where it
+        // allows it (iPhones don't, so the bar-less view alone is used there) and reloads the
+        // game so it starts at the bigger size
+        const fullscreenGameBtn = document.getElementById('fullscreen-game');
+        const exitFullBtn = document.getElementById('game-exit-full');
+
+        function enterGameFullscreen() {
+            if (gameModal.classList.contains('hidden')) return;
+            gameModal.classList.add('game-full');
+            const req = gameModal.requestFullscreen || gameModal.webkitRequestFullscreen;
+            if (req) {
+                try {
+                    const p = req.call(gameModal);
+                    if (p && p.catch) p.catch(() => {});
+                } catch (e) {}
+            }
+            if (currentGameUrl) loadGame(currentGameUrl);
+        }
+
+        function exitGameFullscreen() {
+            gameModal.classList.remove('game-full');
+            const fe = document.fullscreenElement || document.webkitFullscreenElement;
+            if (fe) {
+                try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+            }
+        }
+
+        function onFullscreenChange() {
+            // pressing Esc leaves browser fullscreen: bring the top bar back too
+            if (!(document.fullscreenElement || document.webkitFullscreenElement)) {
+                gameModal.classList.remove('game-full');
+            }
+        }
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+        fullscreenGameBtn.addEventListener('click', enterGameFullscreen);
+        exitFullBtn.addEventListener('click', exitGameFullscreen);
+
         closeGameBtn.addEventListener('click', () => {
+            exitGameFullscreen();
             gameModal.classList.add('hidden');
             resetGameFrame();
         });
@@ -4601,6 +4719,63 @@
             applyBg();
 
             // ---------- user themes ----------
+            // ---------- game bar button colors: saved per theme ----------
+            const GBTN_KEY = 'gamehub_gamebtn_by_theme'; // { <themeId>: { close, fs } }
+            const GBTN_DEFAULTS = { close: '#dc2626', fs: '#2563eb' };
+            let gbtnMap = lsGet(GBTN_KEY, {});
+            if (!gbtnMap || typeof gbtnMap !== 'object' || Array.isArray(gbtnMap)) gbtnMap = {};
+            const hex6 = v => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+            function gbtnColors(id) {
+                const m = gbtnMap[id] || {};
+                return { close: hex6(m.close) ? m.close : GBTN_DEFAULTS.close, fs: hex6(m.fs) ? m.fs : GBTN_DEFAULTS.fs };
+            }
+            function readableOn(hex) {
+                const n = parseInt(hex.slice(1), 16);
+                const lum = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+                return lum > 0.62 ? '#000000' : '#ffffff';
+            }
+            function cardClearOf(id) {
+                const v = gbtnMap[id] && gbtnMap[id].clear;
+                return (typeof v === 'number' && v >= 0 && v <= 100) ? v : 0;
+            }
+            function applyGameBtns() {
+                const c = gbtnColors(activeId);
+                const clear = cardClearOf(activeId);
+                document.documentElement.style.setProperty('--card-clear', String(clear / 100));
+                document.documentElement.style.setProperty('--card-fill', (38 * (1 - clear / 100)).toFixed(2) + '%');
+                $('card-clear').value = clear;
+                $('card-clear-val').textContent = clear + '%';
+                const r = document.documentElement.style;
+                r.setProperty('--close-btn-bg', c.close);
+                r.setProperty('--close-btn-text', readableOn(c.close));
+                r.setProperty('--fs-btn-bg', c.fs);
+                r.setProperty('--fs-btn-text', readableOn(c.fs));
+                $('gb-close-color').value = c.close;
+                $('gb-fs-color').value = c.fs;
+            }
+            function setGameBtn(which, value) {
+                if (!hex6(value)) return;
+                gbtnMap[activeId] = Object.assign({}, gbtnMap[activeId], { [which]: value });
+                applyGameBtns();
+                lsSet(GBTN_KEY, gbtnMap);
+            }
+            $('gb-close-color').addEventListener('input', e => setGameBtn('close', e.target.value));
+            $('gb-fs-color').addEventListener('input', e => setGameBtn('fs', e.target.value));
+            $('card-clear').addEventListener('input', e => {
+                gbtnMap[activeId] = Object.assign({}, gbtnMap[activeId], { clear: +e.target.value });
+                applyGameBtns();
+                lsSet(GBTN_KEY, gbtnMap);
+            });
+            $('gb-reset').addEventListener('click', () => {
+                const m = gbtnMap[activeId];
+                if (m) {
+                    delete m.close; delete m.fs;
+                    if (!Object.keys(m).length) delete gbtnMap[activeId];
+                }
+                lsSet(GBTN_KEY, gbtnMap);
+                applyGameBtns();
+            });
+
             function themeLabel(id) {
                 if (id.startsWith('preset:')) {
                     const b = document.querySelector('.preset-btn[data-preset="' + id.slice(7) + '"]');
@@ -4617,6 +4792,7 @@
                 const lbl = themeLabel(activeId);
                 $('active-theme-label').textContent = lbl;
                 $('bg-theme-label').textContent = lbl;
+                applyGameBtns();
                 renderThemes();
             }
             function switchTheme(id) {
@@ -4681,6 +4857,8 @@
                         lsSet(THEMES_KEY, userThemes);
                         delete store.themes[delId];
                         delete bgMap[delId];
+                        delete gbtnMap[delId];
+                        lsSet(GBTN_KEY, gbtnMap);
                         saveEd();
                         lsSet(BGS_KEY, bgMap);
                         if (activeId === delId) switchTheme('custom'); else renderThemes();
@@ -4705,7 +4883,9 @@
                         const fromId = activeId;
                         store.themes[newId] = normEd(clone(ed));
                         if (bg) bgMap[newId] = clone(bg); else delete bgMap[newId];
-                        if (fromId === 'custom') { delete store.themes.custom; delete bgMap.custom; }
+                        if (gbtnMap[fromId]) gbtnMap[newId] = clone(gbtnMap[fromId]); else delete gbtnMap[newId];
+                        if (fromId === 'custom') { delete store.themes.custom; delete bgMap.custom; delete gbtnMap.custom; }
+                        lsSet(GBTN_KEY, gbtnMap);
                         saveEd();
                         lsSet(BGS_KEY, bgMap);
                         switchTheme(newId);
